@@ -52,13 +52,13 @@ services:
       - REDOC_PATH=${REDOC_PATH:-/redoc}
     volumes:
       - ./logs:/app/logs
-      - ./scripts:/app/scripts  # Ensure scripts are mounted properly
+      - ./scripts:/scripts  # Ensure scripts are mounted properly
     restart: unless-stopped
     # Use bash explicitly to execute scripts and fix permission issues
     command: >
       /bin/bash -c "bash /app/scripts/docker-entrypoint.sh"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7870/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
       interval: 120s
       timeout: 5s
       retries: 3
