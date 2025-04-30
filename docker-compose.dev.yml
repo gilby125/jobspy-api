@@ -6,19 +6,29 @@ services:
     image: jobspy-docker-api-dev
     container_name: jobspy-docker-api-dev
     ports:
-      - "8000:8000"
+      - "8787:8787"
     env_file:
       - .env
       - .env.local  # Load .env.local to override .env values
     environment:
-      # The following values intentionally override .env settings for development
-      # These hardcoded values ensure consistent behavior in development environment
-      - ENVIRONMENT=production
-      - LOG_LEVEL=INFO
+      # Development-specific overrides
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
       - ENABLE_API_KEY_AUTH=true
-      - API_KEYS=${API_KEYS:-dev-key-123}  # Use from .env.local or default to dev-key
+      - API_KEYS=${API_KEYS:-dev-key-123}
       - RATE_LIMIT_ENABLED=true
       - ENABLE_CACHE=true
+      - ENABLE_SWAGGER_UI=true
+      - ENABLE_REDOC=true
     volumes:
-      - .:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      - ./app:/app/app  # Mount only app code
+      - ./logs:/app/logs
+      - ./scripts:/app/scripts
+    restart: unless-stopped
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8787 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
