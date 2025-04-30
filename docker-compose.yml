@@ -6,7 +6,7 @@ services:
     image: jobspy-docker-api
     container_name: jobspy-docker-api
     ports:
-      - "8000:8000"
+      - "8787:8787"
     env_file:
       - .env
     environment:
@@ -58,7 +58,7 @@ services:
     command: >
       /bin/bash -c "bash /app/scripts/docker-entrypoint.sh"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
       interval: 120s
       timeout: 5s
       retries: 3
