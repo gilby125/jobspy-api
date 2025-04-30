@@ -1,9 +1,8 @@
-
+version: '3'
 
 services:
   jobspy-api:
     build: .
-    image: jobspy-docker-api
     container_name: jobspy-docker-api
     ports:
       - "8787:8000"
@@ -63,4 +62,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
-            
