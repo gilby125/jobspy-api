@@ -56,7 +56,7 @@ services:
     restart: unless-stopped
     # Use bash explicitly to execute scripts and fix permission issues
     command: >
-      /bin/bash -c "bash /app/scripts/docker-entrypoint.sh"
+      /bin/bash -c "ls -la /app/scripts && bash /app/scripts/docker-entrypoint.sh"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
       interval: 120s
