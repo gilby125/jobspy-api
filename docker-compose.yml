@@ -6,7 +6,7 @@ services:
     image: jobspy-docker-api
     container_name: jobspy-docker-api
     ports:
-      - "8787:8787"
+      - "8787:8000"
     env_file:
       - .env
     environment:
