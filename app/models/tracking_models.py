@@ -7,7 +7,7 @@ from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DECIMAL, DateTime, Date,
     ForeignKey, Index, UniqueConstraint, CheckConstraint, ARRAY
 )
-from sqlalchemy.dialects.postgresql import JSONB, POINT
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -78,7 +78,7 @@ class Location(Base):
     region = Column(String(100))  # e.g., "North America", "Europe"
     
     # PostGIS point for future geographic queries
-    coordinates = Column(POINT)
+    coordinates = Column(String)  # Changed from POINT to String for compatibility
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
