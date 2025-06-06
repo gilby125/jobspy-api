@@ -9,6 +9,8 @@
 # MCP configuration files
 .mcp.json
 mcp.json
+mcp-servers/
+mcp-servers/.env
 
 # Python
 __pycache__/
