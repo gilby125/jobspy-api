@@ -42,6 +42,25 @@ logger = get_logger("main")
 
 logger.info(f"Starting application with log level: {log_level_name}")
 
+# Add version info for deployment tracking
+import subprocess
+import os
+try:
+    # Try to get git commit hash
+    git_commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], 
+                                       stderr=subprocess.DEVNULL, 
+                                       cwd='/app').decode().strip()
+    git_branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], 
+                                       stderr=subprocess.DEVNULL, 
+                                       cwd='/app').decode().strip()
+    logger.info(f"🚀 JobSpy API Version: {git_branch}@{git_commit}")
+except:
+    logger.info("🚀 JobSpy API Version: Unknown (git not available)")
+
+# Add deployment timestamp
+from datetime import datetime
+logger.info(f"📅 Deployment Time: {datetime.now().isoformat()}")
+
 # Set Uvicorn's access logger to WARNING to avoid logging health checks
 logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 

@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_api_key
-from app.db.database import get_db
+# from app.db.database import get_db  # Temporarily disabled due to dependency issues
 from app.models.admin_models import (
     ScheduledSearchRequest, ScheduledSearchResponse, AdminStats,
     BulkSearchRequest, SearchTemplate, SystemConfig, SearchLog, SearchStatus
@@ -201,7 +201,7 @@ async def admin_dashboard(admin_user: dict = Depends(get_admin_user)):
 @router.get("/stats", response_model=AdminStats)
 async def get_admin_stats(
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Get admin dashboard statistics"""
     admin_service = AdminService(db)
@@ -212,7 +212,7 @@ async def schedule_search(
     search_request: ScheduledSearchRequest,
     background_tasks: BackgroundTasks,
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Schedule a new job search"""
     admin_service = AdminService(db)
@@ -240,7 +240,7 @@ async def get_scheduled_searches(
     status: Optional[SearchStatus] = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=1000),
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Get list of scheduled searches"""
     admin_service = AdminService(db)
@@ -250,7 +250,7 @@ async def get_scheduled_searches(
 async def get_search_details(
     search_id: str,
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Get details of a specific search"""
     admin_service = AdminService(db)
@@ -263,7 +263,7 @@ async def get_search_details(
 async def cancel_search(
     search_id: str,
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Cancel a scheduled or running search"""
     admin_service = AdminService(db)
@@ -277,7 +277,7 @@ async def schedule_bulk_searches(
     bulk_request: BulkSearchRequest,
     background_tasks: BackgroundTasks,
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Schedule multiple searches at once"""
     admin_service = AdminService(db)
@@ -301,7 +301,7 @@ async def schedule_bulk_searches(
 @router.get("/templates", response_model=List[SearchTemplate])
 async def get_search_templates(
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Get all search templates"""
     admin_service = AdminService(db)
@@ -311,7 +311,7 @@ async def get_search_templates(
 async def create_search_template(
     template: SearchTemplate,
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Create a new search template"""
     admin_service = AdminService(db)
@@ -323,7 +323,7 @@ async def get_search_logs(
     level: Optional[str] = Query(None, description="Filter by log level"),
     limit: int = Query(100, ge=1, le=1000),
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Get search logs"""
     admin_service = AdminService(db)
@@ -365,7 +365,7 @@ async def toggle_maintenance_mode(
 @router.get("/health")
 async def admin_health_check(
     admin_user: dict = Depends(get_admin_user),
-    db: Session = Depends(get_db)
+# db: Session = Depends(get_db)  # Temporarily disabled
 ):
     """Detailed system health check for admins"""
     admin_service = AdminService(db)
