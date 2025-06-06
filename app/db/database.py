@@ -41,7 +41,11 @@ SessionLocal = sessionmaker(
 Base = declarative_base()
 
 # Import tracking models (this will register them with Base)
-from app.models.tracking_models import *  # noqa
+try:
+    from app.models.tracking_models import *  # noqa
+except ImportError as e:
+    print(f"Warning: Could not import tracking models: {e}")
+    pass
 
 def get_db():
     """

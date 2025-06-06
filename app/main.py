@@ -176,8 +176,16 @@ app.include_router(api.router, prefix="/api/v1", tags=["Jobs"])
 app.include_router(health.router, tags=["Health"])
 
 # Add admin routes
-from app.routes import admin
-app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+try:
+    from app.routes import admin
+    app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+    logger.info("Admin routes loaded successfully")
+except ImportError as e:
+    logger.warning(f"Could not load admin routes: {e}")
+    # Create a simple admin endpoint instead
+    @app.get("/admin/")
+    async def simple_admin():
+        return {"message": "Admin panel temporarily unavailable", "error": str(e)}
 
 @app.get("/", tags=["Info"])
 def read_root():
