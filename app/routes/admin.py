@@ -77,9 +77,9 @@ async def admin_login():
                 const apiKey = document.getElementById('api-key').value;
                 const errorDiv = document.getElementById('error-message');
                 
-                // Test API key by making a request to dashboard
+                // Test API key by making a request to stats endpoint (simpler than dashboard)
                 try {
-                    const response = await fetch('/admin/', {
+                    const response = await fetch('/admin/stats', {
                         headers: {
                             'x-api-key': apiKey
                         }
@@ -91,7 +91,8 @@ async def admin_login():
                         // Redirect to dashboard
                         window.location.href = '/admin/';
                     } else {
-                        errorDiv.textContent = 'Invalid API key. Please check and try again.';
+                        const errorData = await response.json().catch(() => ({}));
+                        errorDiv.textContent = errorData.message || 'Invalid API key. Please check and try again.';
                         errorDiv.style.display = 'block';
                     }
                 } catch (error) {
