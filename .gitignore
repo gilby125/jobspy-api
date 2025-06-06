@@ -6,6 +6,10 @@
 .env.prod
 .env.dev
 
+# MCP configuration files
+.mcp.json
+mcp.json
+
 # Python
 __pycache__/
 *.py[cod]
