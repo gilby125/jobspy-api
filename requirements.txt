@@ -22,4 +22,3 @@ numpy
 
 # Utilities
 python-dateutil
-hashlib-compat

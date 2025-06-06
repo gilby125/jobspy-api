@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  jobspy-api:
+    build:
+      context: https://github.com/gilby125/jobspy-api.git#feature/complete-api-with-admin
+      dockerfile: Dockerfile
+    image: jobspy-api-admin:latest
+    container_name: jobspy-api-admin
+    ports:
+      - "8787:8000"
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql://postgres:Lokifish123@192.168.7.101:5432/jobspy
+      - REDIS_URL=redis://192.168.7.48:6379/0
+      
+      # API Settings
+      - LOG_LEVEL=INFO
+      - ENABLE_API_KEY_AUTH=false
+      - API_KEYS=admin-test-key
+      
+      # Caching
+      - ENABLE_CACHE=true
+      - CACHE_EXPIRY=3600
+      
+      # JobSpy Defaults
+      - DEFAULT_SITE_NAMES=indeed,linkedin,zip_recruiter,glassdoor,google,bayt,naukri
+      - DEFAULT_RESULTS_WANTED=20
+      - DEFAULT_DISTANCE=50
+      - DEFAULT_DESCRIPTION_FORMAT=markdown
+      - DEFAULT_COUNTRY_INDEED=USA
+      
+      # Documentation
+      - ENABLE_SWAGGER_UI=true
+      - ENABLE_REDOC=true
+      - SWAGGER_UI_PATH=/docs
+      - REDOC_PATH=/redoc
+      
+      # Health & Monitoring
+      - ENABLE_HEALTH_ENDPOINTS=true
+      - ENABLE_DETAILED_HEALTH=true
+      
+      # CORS
+      - CORS_ORIGINS=*
+      
+      # Environment
+      - ENVIRONMENT=production
+      
+    volumes:
+      - jobspy_logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  jobspy_logs:
