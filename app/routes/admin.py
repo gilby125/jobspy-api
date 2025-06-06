@@ -25,7 +25,7 @@ def get_admin_user(api_key: str = Depends(get_api_key)):
     return {"username": "admin", "role": "admin"}
 
 @router.get("/", response_class=HTMLResponse)
-async def admin_dashboard():
+async def admin_dashboard(admin_user: dict = Depends(get_admin_user)):
     """Admin dashboard main page"""
     html_content = """
     <!DOCTYPE html>

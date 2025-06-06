@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.config import settings as app_settings
 
 logger = logging.getLogger(__name__)
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+api_key_header = APIKeyHeader(name="x-api-key", auto_error=False)
 
 async def get_api_key(request: Request, api_key: Optional[str] = Depends(api_key_header)):
     # Log detailed information about the authentication attempt
