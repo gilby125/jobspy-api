@@ -24,6 +24,86 @@ def get_admin_user(api_key: str = Depends(get_api_key)):
     # For now, we'll assume all valid API keys have admin access
     return {"username": "admin", "role": "admin"}
 
+@router.get("/login", response_class=HTMLResponse)
+async def admin_login():
+    """Admin login page with API key input"""
+    html_content = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>JobSpy Admin - Login</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100vh; display: flex; align-items: center; justify-content: center; }
+            .login-container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-width: 400px; width: 100%; }
+            .logo { text-align: center; margin-bottom: 30px; }
+            .logo h1 { color: #2c3e50; margin: 0; font-size: 28px; }
+            .logo p { color: #7f8c8d; margin: 5px 0 0 0; }
+            .form-group { margin-bottom: 20px; }
+            .form-group label { display: block; margin-bottom: 5px; color: #2c3e50; font-weight: bold; }
+            .form-group input { width: 100%; padding: 12px; border: 2px solid #ecf0f1; border-radius: 5px; font-size: 16px; box-sizing: border-box; }
+            .form-group input:focus { outline: none; border-color: #3498db; }
+            .login-btn { width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; transition: background 0.3s; }
+            .login-btn:hover { background: #2980b9; }
+            .error { color: #e74c3c; margin-top: 10px; padding: 10px; background: #fadbd8; border-radius: 5px; display: none; }
+            .hint { font-size: 12px; color: #7f8c8d; margin-top: 5px; }
+        </style>
+    </head>
+    <body>
+        <div class="login-container">
+            <div class="logo">
+                <h1>🔧 JobSpy Admin</h1>
+                <p>Enter your API key to access the admin panel</p>
+            </div>
+            
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="api-key">API Key:</label>
+                    <input type="password" id="api-key" placeholder="Enter your API key" required>
+                    <div class="hint">The API key is required to access admin features</div>
+                </div>
+                
+                <button type="submit" class="login-btn">Login to Admin Panel</button>
+                
+                <div id="error-message" class="error"></div>
+            </form>
+        </div>
+
+        <script>
+            // Store API key and redirect to dashboard
+            document.getElementById('login-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const apiKey = document.getElementById('api-key').value;
+                const errorDiv = document.getElementById('error-message');
+                
+                // Test API key by making a request to dashboard
+                try {
+                    const response = await fetch('/admin/', {
+                        headers: {
+                            'x-api-key': apiKey
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        // Store API key in sessionStorage
+                        sessionStorage.setItem('admin-api-key', apiKey);
+                        // Redirect to dashboard
+                        window.location.href = '/admin/';
+                    } else {
+                        errorDiv.textContent = 'Invalid API key. Please check and try again.';
+                        errorDiv.style.display = 'block';
+                    }
+                } catch (error) {
+                    errorDiv.textContent = 'Error connecting to server. Please try again.';
+                    errorDiv.style.display = 'block';
+                }
+            });
+        </script>
+    </body>
+    </html>
+    """
+    return html_content
+
 @router.get("/", response_class=HTMLResponse)
 async def admin_dashboard(admin_user: dict = Depends(get_admin_user)):
     """Admin dashboard main page"""
@@ -138,10 +218,19 @@ async def admin_dashboard(admin_user: dict = Depends(get_admin_user)):
         </div>
 
         <script>
+            // Get API key from session storage
+            const apiKey = sessionStorage.getItem('admin-api-key');
+            if (!apiKey) {
+                window.location.href = '/admin/login';
+                return;
+            }
+
             // Load stats
             async function loadStats() {
                 try {
-                    const response = await fetch('/admin/stats');
+                    const response = await fetch('/admin/stats', {
+                        headers: { 'x-api-key': apiKey }
+                    });
                     const stats = await response.json();
                     document.getElementById('total-searches').textContent = stats.total_searches;
                     document.getElementById('jobs-found').textContent = stats.jobs_found_today;
@@ -170,6 +259,7 @@ async def admin_dashboard(admin_user: dict = Depends(get_admin_user)):
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'x-api-key': apiKey
                         },
                         body: JSON.stringify(formData)
                     });
