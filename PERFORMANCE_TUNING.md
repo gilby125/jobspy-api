@@ -13,4 +13,4 @@
 - Rotate logs by mounting a log driver.
 
 ## Monitoring
-- Expose `/metrics` with Prometheus.
+- Expose `/metrics` with Prometheus.claude

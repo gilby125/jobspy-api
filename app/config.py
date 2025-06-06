@@ -73,12 +73,58 @@ class Settings:
             "DEFAULT_COUNTRY_INDEED", None
         )
         
+        # Database Configuration
+        self.DATABASE_URL, self.DATABASE_URL_SOURCE = self._get_setting_with_source(
+            "DATABASE_URL", None
+        )
+        
+        # Cache and Queue Configuration
+        self.REDIS_URL, self.REDIS_URL_SOURCE = self._get_setting_with_source(
+            "REDIS_URL", None
+        )
+        self.CACHE_BACKEND, self.CACHE_BACKEND_SOURCE = self._get_setting_with_source(
+            "CACHE_BACKEND", "redis"
+        )
+        
+        # Celery Configuration
+        self.CELERY_BROKER_URL, self.CELERY_BROKER_URL_SOURCE = self._get_setting_with_source(
+            "CELERY_BROKER_URL", None
+        )
+        self.CELERY_RESULT_BACKEND, self.CELERY_RESULT_BACKEND_SOURCE = self._get_setting_with_source(
+            "CELERY_RESULT_BACKEND", None
+        )
+        
         # Caching
         self.ENABLE_CACHE, self.ENABLE_CACHE_SOURCE = self._get_setting_with_source(
-            "ENABLE_CACHE", "false", self._parse_bool
+            "ENABLE_CACHE", "true", self._parse_bool
         )
         self.CACHE_EXPIRY, self.CACHE_EXPIRY_SOURCE = self._get_setting_with_source(
             "CACHE_EXPIRY", "3600", int
+        )
+        
+        # Worker Configuration
+        self.SCRAPING_FREQUENCY_HOURS, self.SCRAPING_FREQUENCY_HOURS_SOURCE = self._get_setting_with_source(
+            "SCRAPING_FREQUENCY_HOURS", "24", int
+        )
+        self.WORKER_CONCURRENCY, self.WORKER_CONCURRENCY_SOURCE = self._get_setting_with_source(
+            "WORKER_CONCURRENCY", "2", int
+        )
+        self.RETRY_MAX_ATTEMPTS, self.RETRY_MAX_ATTEMPTS_SOURCE = self._get_setting_with_source(
+            "RETRY_MAX_ATTEMPTS", "3", int
+        )
+        self.RETRY_DELAY_SECONDS, self.RETRY_DELAY_SECONDS_SOURCE = self._get_setting_with_source(
+            "RETRY_DELAY_SECONDS", "300", int
+        )
+        
+        # Job Tracking Configuration
+        self.JOB_DEDUPLICATION_ENABLED, self.JOB_DEDUPLICATION_ENABLED_SOURCE = self._get_setting_with_source(
+            "JOB_DEDUPLICATION_ENABLED", "true", self._parse_bool
+        )
+        self.JOB_EXPIRY_DAYS, self.JOB_EXPIRY_DAYS_SOURCE = self._get_setting_with_source(
+            "JOB_EXPIRY_DAYS", "30", int
+        )
+        self.ENABLE_WEBHOOKS, self.ENABLE_WEBHOOKS_SOURCE = self._get_setting_with_source(
+            "ENABLE_WEBHOOKS", "true", self._parse_bool
         )
         
         # Logging

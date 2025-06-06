@@ -175,6 +175,10 @@ async def log_requests(request: Request, call_next):
 app.include_router(api.router, prefix="/api/v1", tags=["Jobs"])
 app.include_router(health.router, tags=["Health"])
 
+# Add admin routes
+from app.routes import admin
+app.include_router(admin.router, prefix="/admin", tags=["Admin"])
+
 @app.get("/", tags=["Info"])
 def read_root():
     return {

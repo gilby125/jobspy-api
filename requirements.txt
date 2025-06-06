@@ -6,3 +6,20 @@ pydantic-settings
 python-multipart
 psutil
 python-dotenv
+
+# Database
+sqlalchemy
+psycopg2-binary
+alembic
+
+# Cache and Queue
+redis
+celery[redis]
+
+# Analytics and Processing
+pandas
+numpy
+
+# Utilities
+python-dateutil
+hashlib-compat
