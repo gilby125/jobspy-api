@@ -8,48 +8,63 @@ from app.models.admin_models import (
     ScheduledSearchRequest, ScheduledSearchResponse, AdminStats,
     SearchTemplate, SearchLog, SearchStatus
 )
+from app.models.tracking_models import JobPosting, ScrapingRun, Company
 from app.cache import cache
 
 
 class AdminService:
     def __init__(self, db: Session):
         self.db = db
-        self._search_store = {}  # In-memory store for demo, use DB in production
-        self._template_store = {}
-        self._log_store = []
 
     async def get_admin_stats(self) -> AdminStats:
-        """Get admin dashboard statistics"""
-        # In production, these would come from the database
+        """Get admin dashboard statistics from database"""
         now = datetime.now()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         
-        # Mock data for now - replace with actual DB queries
-        total_searches = len(self._search_store)
-        searches_today = len([s for s in self._search_store.values() if s.created_at >= today_start])
-        active_searches = len([s for s in self._search_store.values() if s.status == SearchStatus.RUNNING])
-        failed_searches_today = len([s for s in self._search_store.values() 
-                                   if s.status == SearchStatus.FAILED and s.created_at >= today_start])
+        try:
+            # Get scraping run statistics
+            total_searches = self.db.query(ScrapingRun).count()
+            searches_today = self.db.query(ScrapingRun).filter(
+                ScrapingRun.start_time >= today_start
+            ).count()
+            active_searches = self.db.query(ScrapingRun).filter(
+                ScrapingRun.status.in_(['pending', 'running'])
+            ).count()
+            
+            # Get job posting statistics
+            total_jobs_found = self.db.query(JobPosting).count()
+            jobs_found_today = self.db.query(JobPosting).filter(
+                JobPosting.date_scraped >= today_start
+            ).count()
+            
+        except Exception as e:
+            # Fallback to mock data if database isn't available
+            total_searches = 0
+            searches_today = 0
+            active_searches = 0
+            total_jobs_found = 0
+            jobs_found_today = 0
         
-        # Calculate jobs found (mock data)
-        total_jobs = sum(s.jobs_found or 0 for s in self._search_store.values())
-        jobs_today = sum(s.jobs_found or 0 for s in self._search_store.values() 
-                        if s.created_at >= today_start)
+        try:
+            failed_searches_today = self.db.query(ScrapingRun).filter(
+                ScrapingRun.status == 'failed',
+                ScrapingRun.start_time >= today_start
+            ).count()
+        except Exception:
+            failed_searches_today = 0
         
         return AdminStats(
             total_searches=total_searches,
             searches_today=searches_today,
-            total_jobs_found=total_jobs,
-            jobs_found_today=jobs_today,
+            total_jobs_found=total_jobs_found,
+            jobs_found_today=jobs_found_today,
             active_searches=active_searches,
             failed_searches_today=failed_searches_today,
-            cache_hit_rate=0.85,  # Mock cache hit rate
+            cache_hit_rate=0.85,  # Mock data for now
             system_health={
-                "status": "healthy",
-                "database": "connected",
-                "redis": "connected",
-                "memory_usage": "45%",
-                "cpu_usage": "23%"
+                "database": "healthy",
+                "cache": "healthy", 
+                "api": "healthy"
             }
         )
 

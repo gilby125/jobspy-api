@@ -2,7 +2,7 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-LABEL maintainer="Shannon Atkinson <rainmanjam@gmail.com"
+LABEL maintainer="Shannon Atkinson <rainmanjam@gmail.com>"
 LABEL description="JobSpy Docker API - Job search across multiple platforms"
 
 # Use ARG instead of ENV for settings that should be overridable

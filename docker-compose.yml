@@ -1,19 +1,58 @@
-version: '3'
+version: '3.8'
 
 services:
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: jobspy-postgres
+    environment:
+      - POSTGRES_DB=jobspy
+      - POSTGRES_USER=jobspy
+      - POSTGRES_PASSWORD=jobspy_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobspy -d jobspy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: jobspy-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   jobspy-api:
-    build: 
-      context: https://github.com/gilby125/jobspy-api.git#feature/complete-api-with-admin
-      dockerfile: Dockerfile
-      args:
-        - BUILDKIT_INLINE_CACHE=0
-        - CACHEBUST=${RANDOM:-$(date +%s)}
+    build: .
+    image: jobspy-docker-api
     container_name: jobspy-docker-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     ports:
       - "8787:8000"
     env_file:
       - .env
     environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql://jobspy:jobspy_password@postgres:5432/jobspy
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
       # The most important settings that need consistent values
       - LOG_LEVEL=${LOG_LEVEL:-INFO}  # Default to INFO if not set elsewhere
       - ENABLE_API_KEY_AUTH=${ENABLE_API_KEY_AUTH:-false}
@@ -42,12 +81,6 @@ services:
       # Logging
       - ENVIRONMENT=${ENVIRONMENT:-production}
       
-      # Database Configuration (for testing)
-      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:Lokifish123@192.168.7.101:5432/jobspy}
-      
-      # Redis Configuration (for testing)
-      - REDIS_URL=${REDIS_URL:-redis://192.168.7.48:6379/0}
-      
       # CORS
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
       
@@ -68,8 +101,12 @@ services:
     command: >
       /bin/bash -c "bash /app/scripts/docker-entrypoint.sh"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8787/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 120s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  postgres_data:
+  redis_data:

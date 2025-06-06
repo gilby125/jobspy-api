@@ -1,12 +1,5 @@
-"""Models for the JobSpy Docker API."""
-from .health_models import HealthCheck, DetailedHealthCheck
-from .job_models import JobSearchParams, JobResponse, PaginatedJobResponse
+"""SQLAlchemy models for the application."""
+# Import the Item model from database.py for CRUD operations
+from app.db.database import Item
 
-# Re-export all models
-__all__ = [
-    "HealthCheck", 
-    "DetailedHealthCheck",
-    "JobSearchParams", 
-    "JobResponse", 
-    "PaginatedJobResponse"
-]
+__all__ = ["Item"]

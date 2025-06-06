@@ -15,8 +15,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.cache import cache
-from app.config import settings
-from app.core import config_bridge
+from app.core.config import settings
 from app.core.logging_config import get_logger, setup_logging
 from app.middleware.rate_limiter import RateLimitMiddleware
 from app.middleware.request_logger import RequestLoggerMiddleware, log_request_middleware
@@ -151,7 +150,7 @@ async def shutdown_event():
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -194,6 +193,14 @@ async def log_requests(request: Request, call_next):
 app.include_router(api.router, prefix="/api/v1", tags=["Jobs"])
 app.include_router(health.router, tags=["Health"])
 
+# Include advanced jobs API router with database integration
+try:
+    from app.api.routes import jobs
+    app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Advanced Jobs"])
+    logger.info("Advanced jobs API router loaded successfully")
+except ImportError as e:
+    logger.warning(f"Could not load advanced jobs router: {e}")
+
 # Add admin routes
 try:
     from app.routes import admin
@@ -215,96 +222,6 @@ def read_root():
         "health_check": "/health"
     }
 
-# Add health check endpoint with minimal logging
-@app.get("/health")
-async def health_check():
-    """Health check endpoint for monitoring systems"""
-    # Only log health checks in debug mode
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug("Health check requested")
-    return {"status": "healthy"}
-
-@app.get("/api/v1/search_jobs")
-async def search_jobs(
-    site_name: Union[List[str], str] = Query(default=None, description="Job sites to search on"),
-    search_term: Optional[str] = Query(None, description="Job search term"),
-    google_search_term: Optional[str] = Query(None, description="Search term for Google jobs"),
-    location: Optional[str] = Query(None, description="Job location"),
-    distance: Optional[int] = Query(None, description="Distance in miles"),
-    job_type: Optional[str] = Query(None, description="Job type (fulltime, parttime, internship, contract)"),
-    is_remote: Optional[bool] = Query(None, description="Remote job filter"),
-    results_wanted: Optional[int] = Query(None, description="Number of results per site"),
-    hours_old: Optional[int] = Query(None, description="Filter by hours since posting"),
-    easy_apply: Optional[bool] = Query(None, description="Filter for easy apply jobs"),
-    description_format: Optional[str] = Query(None, description="Format of job description"),
-    offset: Optional[int] = Query(None, description="Offset for pagination"),
-    verbose: Optional[int] = Query(None, description="Controls verbosity"),
-    linkedin_fetch_description: Optional[bool] = Query(None, description="Fetch full LinkedIn descriptions"),
-    country_indeed: Optional[str] = Query(None, description="Country filter for Indeed & Glassdoor"),
-    enforce_annual_salary: Optional[bool] = Query(None, description="Convert wages to annual salary"),
-    format: str = Query("json", description="Output format: json or csv"),
-    paginate: bool = Query(False, description="Enable pagination"),
-    page: int = Query(1, description="Page number when pagination is enabled"),
-    page_size: int = Query(10, ge=1, le=100, description="Results per page when pagination is enabled"),
-):
-    try:
-        # Handle site_name=all explicitly
-        if site_name is None:
-            site_name = SUPPORTED_SITES
-        elif isinstance(site_name, str):
-            if site_name.lower() == "all":
-                site_name = SUPPORTED_SITES
-            else:
-                site_name = [site_name]
-        elif isinstance(site_name, list):
-            if any(s.lower() == "all" for s in site_name):
-                site_name = SUPPORTED_SITES
-
-        # Use env default for country_indeed if not provided
-        if country_indeed is None:
-            country_indeed = os.getenv("DEFAULT_COUNTRY_INDEED", "USA")
-            logger.debug(f"Using default country_indeed from environment: {country_indeed}")
-
-        # Call your existing job scraping code
-        # ...existing job scraping code...
-
-        # This is a placeholder - replace with your actual jobs data
-        jobs_data = []  # Replace this with your actual jobs_data
-
-        # Format conversion and response
-        if format.lower() == "csv":
-            logger.debug("Returning CSV format")
-            if not jobs_data:
-                output = io.StringIO()
-                writer = csv.writer(output)
-                writer.writerow(["No results"])
-                output.seek(0)
-                return StreamingResponse(
-                    output, 
-                    media_type="text/csv", 
-                    headers={"Content-Disposition": "attachment; filename=jobs.csv"}
-                )
-                
-            output = io.StringIO()
-            writer = csv.DictWriter(output, fieldnames=jobs_data[0].keys())
-            writer.writeheader()
-            writer.writerows(jobs_data)
-            output.seek(0)
-            return StreamingResponse(
-                output, 
-                media_type="text/csv", 
-                headers={"Content-Disposition": "attachment; filename=jobs.csv"}
-            )
-            
-        # Default: JSON response
-        return {
-            "count": len(jobs_data),
-            "jobs": jobs_data
-        }
-        
-    except Exception as e:
-        logger.exception(f"Error in search_jobs: {str(e)}")
-        raise
 
 # API key auth default logic (at app startup or dependency)
 ENABLE_API_KEY_AUTH = get_env_bool("ENABLE_API_KEY_AUTH", default=True)

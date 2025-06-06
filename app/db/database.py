@@ -4,7 +4,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 import logging
-from app.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,16 +37,24 @@ SessionLocal = sessionmaker(
     expire_on_commit=False  # Keep objects usable after commit
 )
 
-# Import models to ensure they're registered with Base
-Base = declarative_base()
+# Import tracking models to register them with Base
+try:
+    from app.models.tracking_models import Base
+    logger.info("Tracking models imported successfully")
+except ImportError as e:
+    logger.warning(f"Could not import tracking models: {e}")
+    # Fall back to empty Base if models can't be imported
+    Base = declarative_base()
 
-# Import tracking models (this will register them with Base)
-# Temporarily disabled due to SQLAlchemy compatibility issues
-# try:
-#     from app.models.tracking_models import *  # noqa
-# except ImportError as e:
-#     print(f"Warning: Could not import tracking models: {e}")
-#     pass
+# Simple example model for CRUD operations
+from sqlalchemy import Column, Integer, String, Text
+class Item(Base):
+    """Simple example model for testing CRUD operations."""
+    __tablename__ = "items"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
 
 def get_db():
     """
