@@ -70,14 +70,30 @@ async def admin_login():
         </div>
 
         <script>
+            // Clear any existing session on login page load
+            sessionStorage.removeItem('admin-api-key');
+            
             // Store API key and redirect to dashboard
             document.getElementById('login-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
                 
-                const apiKey = document.getElementById('api-key').value;
+                const apiKey = document.getElementById('api-key').value.trim();
                 const errorDiv = document.getElementById('error-message');
+                const submitBtn = document.querySelector('.login-btn');
                 
-                // Test API key by making a request to stats endpoint (simpler than dashboard)
+                if (!apiKey) {
+                    errorDiv.textContent = 'Please enter an API key.';
+                    errorDiv.style.display = 'block';
+                    return;
+                }
+                
+                // Disable submit button and show loading
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Validating...';
+                errorDiv.style.display = 'none';
+                
+                console.log('Testing API key:', apiKey.substring(0, 8) + '...');
+                
                 try {
                     const response = await fetch('/admin/stats', {
                         headers: {
@@ -85,20 +101,42 @@ async def admin_login():
                         }
                     });
                     
+                    console.log('Login response status:', response.status);
+                    
                     if (response.ok) {
+                        console.log('API key valid, storing and redirecting');
                         // Store API key in sessionStorage
                         sessionStorage.setItem('admin-api-key', apiKey);
-                        // Redirect to dashboard with success message
-                        alert('Login successful! Redirecting to dashboard...');
-                        window.location.href = '/admin/';
+                        
+                        // Update button
+                        submitBtn.textContent = 'Login Successful!';
+                        
+                        // Small delay to show success, then redirect
+                        setTimeout(() => {
+                            console.log('Redirecting to dashboard');
+                            window.location.href = '/admin/';
+                        }, 500);
+                        
+                    } else if (response.status === 403) {
+                        console.log('API key rejected');
+                        errorDiv.textContent = 'Invalid API key. Please check and try again.';
+                        errorDiv.style.display = 'block';
+                        
                     } else {
+                        console.log('Unexpected response:', response.status);
                         const errorData = await response.json().catch(() => ({}));
-                        errorDiv.textContent = errorData.message || 'Invalid API key. Please check and try again.';
+                        errorDiv.textContent = errorData.message || `Server error (${response.status}). Please try again.`;
                         errorDiv.style.display = 'block';
                     }
+                    
                 } catch (error) {
+                    console.error('Login error:', error);
                     errorDiv.textContent = 'Error connecting to server. Please try again.';
                     errorDiv.style.display = 'block';
+                } finally {
+                    // Re-enable submit button
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Login to Admin Panel';
                 }
             });
         </script>
@@ -221,32 +259,87 @@ async def admin_dashboard():
         </div>
 
         <script>
-            // Get API key from session storage
+            // Global auth helper
+            function handleAuthFailure() {
+                console.log('Authentication failed, clearing session and redirecting to login');
+                sessionStorage.removeItem('admin-api-key');
+                window.location.href = '/admin/login';
+            }
+
+            // Authenticated fetch wrapper
+            async function authFetch(url, options = {}) {
+                const apiKey = sessionStorage.getItem('admin-api-key');
+                if (!apiKey) {
+                    handleAuthFailure();
+                    return null;
+                }
+
+                const headers = {
+                    'x-api-key': apiKey,
+                    ...options.headers
+                };
+
+                try {
+                    const response = await fetch(url, { ...options, headers });
+                    
+                    if (response.status === 403) {
+                        console.log('403 Forbidden - API key invalid or missing');
+                        handleAuthFailure();
+                        return null;
+                    }
+                    
+                    if (!response.ok) {
+                        console.error(`Request failed: ${response.status} ${response.statusText}`);
+                        return null;
+                    }
+                    
+                    return response;
+                } catch (error) {
+                    console.error('Request error:', error);
+                    return null;
+                }
+            }
+
+            // Check auth on page load
             const apiKey = sessionStorage.getItem('admin-api-key');
             if (!apiKey) {
-                window.location.href = '/admin/login';
+                console.log('No API key found, redirecting to login');
+                handleAuthFailure();
                 return;
             }
 
-            // Load stats
+            console.log('API key found, loading dashboard');
+
+            // Load stats with proper error handling
             async function loadStats() {
-                try {
-                    const response = await fetch('/admin/stats', {
-                        headers: { 'x-api-key': apiKey }
-                    });
-                    const stats = await response.json();
-                    document.getElementById('total-searches').textContent = stats.total_searches;
-                    document.getElementById('jobs-found').textContent = stats.jobs_found_today;
-                    document.getElementById('active-searches').textContent = stats.active_searches;
-                    document.getElementById('system-health').textContent = stats.system_health.status || 'OK';
-                } catch (error) {
-                    console.error('Failed to load stats:', error);
+                console.log('Loading stats...');
+                const response = await authFetch('/admin/stats');
+                
+                if (response) {
+                    try {
+                        const stats = await response.json();
+                        console.log('Stats loaded:', stats);
+                        
+                        document.getElementById('total-searches').textContent = stats.total_searches || '0';
+                        document.getElementById('jobs-found').textContent = stats.jobs_found_today || '0';
+                        document.getElementById('active-searches').textContent = stats.active_searches || '0';
+                        document.getElementById('system-health').textContent = 
+                            (stats.system_health && stats.system_health.status) || 'OK';
+                    } catch (error) {
+                        console.error('Error parsing stats response:', error);
+                        // Set default values
+                        document.getElementById('total-searches').textContent = 'Error';
+                        document.getElementById('jobs-found').textContent = 'Error';
+                        document.getElementById('active-searches').textContent = 'Error';
+                        document.getElementById('system-health').textContent = 'Error';
+                    }
                 }
             }
 
             // Handle quick search form
             document.getElementById('quick-search-form').addEventListener('submit', async (e) => {
                 e.preventDefault();
+                console.log('Submitting search form...');
                 
                 const formData = {
                     name: document.getElementById('search-name').value,
@@ -257,26 +350,20 @@ async def admin_dashboard():
                     country_indeed: 'USA'
                 };
 
-                try {
-                    const response = await fetch('/admin/searches', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'x-api-key': apiKey
-                        },
-                        body: JSON.stringify(formData)
-                    });
-                    
-                    if (response.ok) {
-                        alert('Search scheduled successfully!');
-                        document.getElementById('quick-search-form').reset();
-                        loadStats();
-                    } else {
-                        alert('Failed to schedule search');
-                    }
-                } catch (error) {
-                    console.error('Error:', error);
-                    alert('Error scheduling search');
+                const response = await authFetch('/admin/searches', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                if (response) {
+                    alert('Search scheduled successfully!');
+                    document.getElementById('quick-search-form').reset();
+                    loadStats();
+                } else {
+                    alert('Failed to schedule search');
                 }
             });
 
