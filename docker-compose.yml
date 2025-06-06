@@ -2,8 +2,9 @@ version: '3'
 
 services:
   jobspy-api:
-    build: .
-    image: jobspy-docker-api
+    build: 
+      context: https://github.com/gilby125/jobspy-api.git#feature/complete-api-with-admin
+      dockerfile: Dockerfile
     container_name: jobspy-docker-api
     ports:
       - "8787:8000"
