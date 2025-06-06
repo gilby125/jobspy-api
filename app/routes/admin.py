@@ -88,7 +88,8 @@ async def admin_login():
                     if (response.ok) {
                         // Store API key in sessionStorage
                         sessionStorage.setItem('admin-api-key', apiKey);
-                        // Redirect to dashboard
+                        // Redirect to dashboard with success message
+                        alert('Login successful! Redirecting to dashboard...');
                         window.location.href = '/admin/';
                     } else {
                         const errorData = await response.json().catch(() => ({}));
@@ -107,7 +108,7 @@ async def admin_login():
     return html_content
 
 @router.get("/", response_class=HTMLResponse)
-async def admin_dashboard(admin_user: dict = Depends(get_admin_user)):
+async def admin_dashboard():
     """Admin dashboard main page"""
     html_content = """
     <!DOCTYPE html>
