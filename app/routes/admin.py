@@ -485,11 +485,28 @@ async def admin_dashboard():
                 }
             }
 
-            // Handle recurring checkbox
-            document.getElementById('recurring').addEventListener('change', function() {
+            // Handle recurring checkbox - with error handling
+            function setupRecurringCheckbox() {
+                const recurringCheckbox = document.getElementById('recurring');
                 const recurringOptions = document.getElementById('recurring-options');
-                recurringOptions.style.display = this.checked ? 'block' : 'none';
-            });
+                
+                if (recurringCheckbox && recurringOptions) {
+                    recurringCheckbox.addEventListener('change', function() {
+                        console.log('Recurring checkbox changed:', this.checked);
+                        recurringOptions.style.display = this.checked ? 'block' : 'none';
+                    });
+                    console.log('Recurring checkbox event listener attached successfully');
+                } else {
+                    console.error('Could not find recurring checkbox or options elements');
+                }
+            }
+            
+            // Set up recurring checkbox when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', setupRecurringCheckbox);
+            } else {
+                setupRecurringCheckbox();
+            }
 
             // Handle quick search form
             document.getElementById('quick-search-form').addEventListener('submit', async (e) => {
@@ -533,6 +550,212 @@ async def admin_dashboard():
                     alert('Failed to schedule search');
                 }
             });
+
+            // Bulk search functions
+            let bulkSearchIndex = 1;
+            
+            function addBulkSearch() {
+                bulkSearchIndex++;
+                const container = document.getElementById('bulk-searches-container');
+                const newSearchHtml = `
+                    <div class="bulk-search-item" data-index="${bulkSearchIndex}">
+                        <div class="bulk-search-header" style="background: #ecf0f1; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                            <strong>Search #${bulkSearchIndex}</strong>
+                            <button class="btn danger" onclick="removeBulkSearch(${bulkSearchIndex})" style="float: right; padding: 2px 6px; font-size: 12px;">Remove</button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Search Name:</label>
+                                <input type="text" class="bulk-search-name" placeholder="e.g. Python Remote Jobs">
+                            </div>
+                            <div class="form-group">
+                                <label>Search Term:</label>
+                                <input type="text" class="bulk-search-term" placeholder="e.g. Python Developer">
+                            </div>
+                            <div class="form-group">
+                                <label>Location:</label>
+                                <input type="text" class="bulk-location" placeholder="e.g. San Francisco, CA">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Job Sites:</label>
+                                <select class="bulk-sites" multiple>
+                                    <option value="indeed" selected>Indeed</option>
+                                    <option value="linkedin">LinkedIn</option>
+                                    <option value="glassdoor">Glassdoor</option>
+                                    <option value="zip_recruiter">ZipRecruiter</option>
+                                    <option value="google">Google Jobs</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Results per Site:</label>
+                                <input type="number" class="bulk-results" value="20" min="1" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Schedule Type:</label>
+                                <select class="bulk-schedule-type" onchange="toggleBulkScheduleOptions(this)">
+                                    <option value="immediate">Run Immediately</option>
+                                    <option value="scheduled">Schedule for Later</option>
+                                    <option value="recurring">Recurring</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row bulk-schedule-options" style="display: none;">
+                            <div class="form-group">
+                                <label>Schedule Time:</label>
+                                <input type="datetime-local" class="bulk-schedule-time">
+                            </div>
+                            <div class="form-group bulk-recurring-options" style="display: none;">
+                                <label>Recurring Interval:</label>
+                                <select class="bulk-recurring-interval">
+                                    <option value="hourly">Every Hour</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', newSearchHtml);
+            }
+            
+            function removeBulkSearch(index) {
+                const searchItem = document.querySelector(`[data-index="${index}"]`);
+                if (searchItem) {
+                    searchItem.remove();
+                }
+            }
+            
+            function clearBulkSearches() {
+                const container = document.getElementById('bulk-searches-container');
+                container.innerHTML = '';
+                bulkSearchIndex = 0;
+                addBulkSearch(); // Add one default search
+            }
+            
+            function toggleBulkScheduleOptions(selectElement) {
+                const searchItem = selectElement.closest('.bulk-search-item');
+                const scheduleOptions = searchItem.querySelector('.bulk-schedule-options');
+                const recurringOptions = searchItem.querySelector('.bulk-recurring-options');
+                const scheduleType = selectElement.value;
+                
+                if (scheduleType === 'scheduled' || scheduleType === 'recurring') {
+                    scheduleOptions.style.display = 'block';
+                } else {
+                    scheduleOptions.style.display = 'none';
+                }
+                
+                if (scheduleType === 'recurring') {
+                    recurringOptions.style.display = 'block';
+                } else {
+                    recurringOptions.style.display = 'none';
+                }
+            }
+            
+            function collectBulkSearchData() {
+                const searches = [];
+                const searchItems = document.querySelectorAll('.bulk-search-item');
+                
+                searchItems.forEach(item => {
+                    const name = item.querySelector('.bulk-search-name').value;
+                    const searchTerm = item.querySelector('.bulk-search-term').value;
+                    const location = item.querySelector('.bulk-location').value;
+                    const sites = Array.from(item.querySelector('.bulk-sites').selectedOptions).map(opt => opt.value);
+                    const results = parseInt(item.querySelector('.bulk-results').value);
+                    const scheduleType = item.querySelector('.bulk-schedule-type').value;
+                    const scheduleTime = item.querySelector('.bulk-schedule-time').value;
+                    const recurringInterval = item.querySelector('.bulk-recurring-interval').value;
+                    
+                    if (name && searchTerm) {
+                        const searchData = {
+                            name: name,
+                            search_term: searchTerm,
+                            location: location || null,
+                            site_names: sites,
+                            results_wanted: results,
+                            country_indeed: 'USA',
+                            recurring: scheduleType === 'recurring',
+                            recurring_interval: scheduleType === 'recurring' ? recurringInterval : null
+                        };
+                        
+                        if (scheduleType === 'scheduled' || scheduleType === 'recurring') {
+                            searchData.schedule_time = scheduleTime ? new Date(scheduleTime).toISOString() : null;
+                        }
+                        
+                        searches.push(searchData);
+                    }
+                });
+                
+                return searches;
+            }
+            
+            async function submitBulkSearches() {
+                const searches = collectBulkSearchData();
+                
+                if (searches.length === 0) {
+                    alert('Please add at least one valid search with name and search term.');
+                    return;
+                }
+                
+                const batchName = document.getElementById('bulk-batch-name').value || `Bulk Search ${new Date().toLocaleString()}`;
+                
+                const bulkRequest = {
+                    searches: searches,
+                    batch_name: batchName
+                };
+                
+                try {
+                    const response = await authFetch('/admin/searches/bulk', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(bulkRequest)
+                    });
+                    
+                    if (response && response.ok) {
+                        const result = await response.json();
+                        alert(`Bulk search scheduled successfully!\\n${result.successful} searches scheduled, ${result.failed} failed.`);
+                        clearBulkSearches();
+                        loadSearches();
+                        loadSearchStats();
+                    } else {
+                        const error = await response.json();
+                        alert('Error scheduling bulk searches: ' + (error.detail || 'Unknown error'));
+                    }
+                } catch (error) {
+                    console.error('Error submitting bulk searches:', error);
+                    alert('Error submitting bulk searches: ' + error.message);
+                }
+            }
+            
+            function previewBulkSearches() {
+                const searches = collectBulkSearchData();
+                
+                if (searches.length === 0) {
+                    alert('No valid searches to preview.');
+                    return;
+                }
+                
+                const batchName = document.getElementById('bulk-batch-name').value || `Bulk Search ${new Date().toLocaleString()}`;
+                
+                let preview = `Batch: ${batchName}\\n`;
+                preview += `Total Searches: ${searches.length}\\n\\n`;
+                
+                searches.forEach((search, index) => {
+                    preview += `${index + 1}. ${search.name}\\n`;
+                    preview += `   Term: ${search.search_term}\\n`;
+                    preview += `   Location: ${search.location || 'Any'}\\n`;
+                    preview += `   Sites: ${search.site_names.join(', ')}\\n`;
+                    preview += `   Results: ${search.results_wanted}\\n`;
+                    if (search.recurring) {
+                        preview += `   Recurring: ${search.recurring_interval}\\n`;
+                    }
+                    preview += '\\n';
+                });
+                
+                alert(preview);
+            }
 
             // Load stats on page load
             loadStats();
@@ -651,6 +874,70 @@ async def schedule_search(
             "created_at": datetime.now().isoformat(),
             "scheduled_time": execution_time.isoformat() if execution_time else None
         }
+
+@router.post("/searches/bulk")
+async def schedule_bulk_searches(
+    request: BulkSearchRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    api_key: str = Depends(get_api_key)
+):
+    """Schedule multiple job searches from a bulk request"""
+    scheduler = await get_celery_scheduler(db)
+    
+    results = []
+    batch_name = request.batch_name or f"Bulk Search {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+    
+    for search_request in request.searches:
+        try:
+            # Handle execution time
+            if search_request.schedule_time:
+                execution_time = search_request.schedule_time.replace(tzinfo=None) if search_request.schedule_time.tzinfo else search_request.schedule_time
+                is_immediate = execution_time <= datetime.now()
+            else:
+                execution_time = datetime.now()
+                is_immediate = True
+            
+            # Schedule the search
+            search_id = await scheduler.schedule_search(
+                search_config=search_request.dict(),
+                schedule_time=execution_time
+            )
+            
+            # Create response
+            response = {
+                "id": str(search_id),
+                "name": search_request.name,
+                "status": "pending",
+                "batch_name": batch_name,
+                "search_params": search_request.dict(),
+                "created_at": datetime.now().isoformat(),
+                "scheduled_time": execution_time.isoformat() if execution_time else None,
+                "recurring": search_request.recurring,
+                "recurring_interval": search_request.recurring_interval
+            }
+            
+            results.append(response)
+            
+        except Exception as e:
+            # Add failed search to results
+            results.append({
+                "id": f"failed_{len(results)}",
+                "name": search_request.name,
+                "status": "failed",
+                "batch_name": batch_name,
+                "error_message": str(e),
+                "search_params": search_request.dict(),
+                "created_at": datetime.now().isoformat()
+            })
+    
+    return {
+        "batch_name": batch_name,
+        "total_searches": len(request.searches),
+        "successful": len([r for r in results if r["status"] != "failed"]),
+        "failed": len([r for r in results if r["status"] == "failed"]),
+        "searches": results
+    }
 
 @router.get("/searches", response_class=HTMLResponse)
 async def admin_searches_page():
@@ -821,6 +1108,88 @@ async def admin_searches_page():
             </div>
 
             <div class="card">
+                <h2>📦 Bulk Search Operations</h2>
+                <p>Schedule multiple searches at once with different parameters</p>
+                
+                <div class="bulk-controls" style="margin-bottom: 20px;">
+                    <button class="btn" onclick="addBulkSearch()">➕ Add Search</button>
+                    <button class="btn" onclick="clearBulkSearches()">🗑️ Clear All</button>
+                    <button class="btn" onclick="loadSearchTemplate()">📋 Load Template</button>
+                    <div style="margin-top: 10px;">
+                        <label for="bulk-batch-name">Batch Name:</label>
+                        <input type="text" id="bulk-batch-name" placeholder="e.g. Weekly Tech Jobs Search" style="margin-left: 10px; padding: 5px;">
+                    </div>
+                </div>
+                
+                <div id="bulk-searches-container" style="margin-bottom: 20px;">
+                    <div class="bulk-search-item" data-index="0">
+                        <div class="bulk-search-header" style="background: #ecf0f1; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
+                            <strong>Search #1</strong>
+                            <button class="btn danger" onclick="removeBulkSearch(0)" style="float: right; padding: 2px 6px; font-size: 12px;">Remove</button>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Search Name:</label>
+                                <input type="text" class="bulk-search-name" placeholder="e.g. Python Remote Jobs">
+                            </div>
+                            <div class="form-group">
+                                <label>Search Term:</label>
+                                <input type="text" class="bulk-search-term" placeholder="e.g. Python Developer">
+                            </div>
+                            <div class="form-group">
+                                <label>Location:</label>
+                                <input type="text" class="bulk-location" placeholder="e.g. San Francisco, CA">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Job Sites:</label>
+                                <select class="bulk-sites" multiple>
+                                    <option value="indeed" selected>Indeed</option>
+                                    <option value="linkedin">LinkedIn</option>
+                                    <option value="glassdoor">Glassdoor</option>
+                                    <option value="zip_recruiter">ZipRecruiter</option>
+                                    <option value="google">Google Jobs</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Results per Site:</label>
+                                <input type="number" class="bulk-results" value="20" min="1" max="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Schedule Type:</label>
+                                <select class="bulk-schedule-type" onchange="toggleBulkScheduleOptions(this)">
+                                    <option value="immediate">Run Immediately</option>
+                                    <option value="scheduled">Schedule for Later</option>
+                                    <option value="recurring">Recurring</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row bulk-schedule-options" style="display: none;">
+                            <div class="form-group">
+                                <label>Schedule Time:</label>
+                                <input type="datetime-local" class="bulk-schedule-time">
+                            </div>
+                            <div class="form-group bulk-recurring-options" style="display: none;">
+                                <label>Recurring Interval:</label>
+                                <select class="bulk-recurring-interval">
+                                    <option value="hourly">Every Hour</option>
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    <button class="btn success" onclick="submitBulkSearches()">🚀 Schedule All Searches</button>
+                    <button class="btn" onclick="previewBulkSearches()">👁️ Preview</button>
+                </div>
+            </div>
+
+            <div class="card">
                 <h2>📋 Scheduled Searches</h2>
                 <div class="actions" style="margin-bottom: 20px;">
                     <button class="btn" onclick="refreshSearches()">🔄 Refresh</button>
@@ -883,12 +1252,20 @@ async def admin_searches_page():
             }
 
             function toggleScheduleOptions() {
+                console.log('toggleScheduleOptions called');
                 const scheduleType = document.getElementById('schedule-type').value;
                 const timeGroup = document.getElementById('schedule-time-group');
                 const recurringGroup = document.getElementById('recurring-group');
                 
-                timeGroup.style.display = scheduleType === 'scheduled' || scheduleType === 'recurring' ? 'block' : 'none';
-                recurringGroup.style.display = scheduleType === 'recurring' ? 'block' : 'none';
+                console.log('Schedule type:', scheduleType);
+                
+                if (timeGroup && recurringGroup) {
+                    timeGroup.style.display = scheduleType === 'scheduled' || scheduleType === 'recurring' ? 'block' : 'none';
+                    recurringGroup.style.display = scheduleType === 'recurring' ? 'block' : 'none';
+                    console.log('Schedule options toggled successfully');
+                } else {
+                    console.error('Could not find schedule option elements');
+                }
             }
 
             async function loadSearchStats() {
