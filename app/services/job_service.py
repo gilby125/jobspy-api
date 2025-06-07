@@ -4,7 +4,7 @@ import pandas as pd
 from jobspy import scrape_jobs
 import logging
 
-from app.config import settings
+from app.core.config import settings
 from app.cache import cache
 
 logger = logging.getLogger(__name__)

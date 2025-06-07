@@ -94,6 +94,7 @@ services:
       - SWAGGER_UI_PATH=${SWAGGER_UI_PATH:-/docs}
       - REDOC_PATH=${REDOC_PATH:-/redoc}
     volumes:
+      - ./app:/app/app  # Mount app directory for live code updates
       - ./logs:/app/logs
       - ./scripts:/scripts  # Ensure scripts are mounted properly
     restart: unless-stopped

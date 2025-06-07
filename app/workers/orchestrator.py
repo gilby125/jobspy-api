@@ -16,7 +16,7 @@ from app.workers.message_protocol import (
 )
 from app.db.database import SessionLocal
 from app.models.tracking_models import ScrapingRun, Company, JobPosting
-from app.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -142,16 +142,29 @@ class ScrapingOrchestrator:
                     if result.metadata:
                         scraping_run.worker_id = result.metadata.worker_id
                 
-                # Process job data (will implement job deduplication later)
-                jobs_processed = 0
-                jobs_new = 0
-                jobs_updated = 0
-                
-                for job_data in result.jobs_data:
-                    # TODO: Implement job deduplication and database storage
-                    # For now, just count the jobs
-                    jobs_processed += 1
-                    jobs_new += 1  # Temporary - will implement proper logic
+                # Process job data with real deduplication
+                try:
+                    from app.services.job_tracking_service import JobTrackingService
+                    job_tracking = JobTrackingService()
+                    
+                    # Process all jobs through the deduplication pipeline
+                    stats = job_tracking.process_scraped_jobs(
+                        jobs_data=result.jobs_data,
+                        source_site=scraping_run.source_platform.split(',')[0],  # Get first site
+                        search_params={"scraping_run_id": scraping_run.id},
+                        db=db
+                    )
+                    
+                    jobs_processed = stats.get('total_processed', 0)
+                    jobs_new = stats.get('new_jobs', 0)
+                    jobs_updated = stats.get('updated_jobs', 0)
+                    
+                except Exception as e:
+                    logger.error(f"Error processing jobs with deduplication: {e}")
+                    # Fallback: just count the jobs
+                    jobs_processed = len(result.jobs_data)
+                    jobs_new = jobs_processed
+                    jobs_updated = 0
                 
                 scraping_run.jobs_new = jobs_new
                 scraping_run.jobs_updated = jobs_updated

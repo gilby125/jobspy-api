@@ -4,8 +4,9 @@ This module synchronizes API key settings between the two config modules.
 """
 import logging
 
-from app.config import settings as app_settings
-from app.core.config import settings as core_settings
+# Disabled - using unified config system
+# from app.config import settings as app_settings
+# from app.core.config import settings as core_settings
 
 logger = logging.getLogger(__name__)
 
@@ -31,5 +32,5 @@ def sync_api_key_settings():
     logger.debug(f"Core API_KEY configured: {bool(core_settings.API_KEY)}")
     logger.debug(f"App API_KEYS configured: {bool(app_settings.API_KEYS)}")
 
-# Run synchronization when module is imported
-sync_api_key_settings()
+# Disabled - using unified config system now
+# sync_api_key_settings()

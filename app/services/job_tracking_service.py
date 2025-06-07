@@ -19,7 +19,7 @@ from app.models.tracking_models import (
     JobMetrics, ScrapingRun, WebhookSubscription
 )
 from app.db.database import get_db
-from app.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

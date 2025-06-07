@@ -10,19 +10,15 @@ def check_auth_configuration() -> Dict[str, Any]:
     This helps diagnose authentication issues by checking all relevant settings.
     """
     # Import here to avoid circular imports
-    from app.core.config import settings as core_settings
-    from app.config import settings as app_settings
+    from app.core.config import settings
     
-    # Check core settings
-    core_api_key_set = bool(core_settings.API_KEY)
-    
-    # Check app settings  
-    app_auth_enabled = app_settings.ENABLE_API_KEY_AUTH
-    app_keys_configured = bool(app_settings.API_KEYS)
-    app_keys_count = len(app_settings.API_KEYS)
+    # Check settings  
+    auth_enabled = settings.ENABLE_API_KEY_AUTH
+    keys_configured = bool(settings.api_keys_list)
+    keys_count = len(settings.api_keys_list)
     
     # Check for configuration inconsistencies
-    inconsistent_config = (app_keys_configured and not app_auth_enabled)
+    inconsistent_config = (keys_configured and not auth_enabled)
     
     # Generate recommendations
     recommendations = []
@@ -32,25 +28,16 @@ def check_auth_configuration() -> Dict[str, Any]:
         )
         logger.warning("API keys are configured but authentication is disabled. This may lead to unexpected behavior.")
     
-    # Determine if authentication is needed based on both configs
-    auth_required = core_api_key_set or (app_auth_enabled and app_keys_configured)
-    
-    # Log configuration sources
-    logger.debug(f"API keys loaded from: {app_settings.API_KEYS_SOURCE}")
-    logger.debug(f"Auth enabled setting loaded from: {app_settings.ENABLE_API_KEY_AUTH_SOURCE}")
+    # Determine if authentication is needed
+    auth_required = auth_enabled and keys_configured
     
     return {
         "auth_required": auth_required,
-        "core_settings": {
-            "api_key_configured": core_api_key_set,
-        },
-        "app_settings": {
-            "auth_enabled": app_auth_enabled,
-            "api_keys_configured": app_keys_configured,
-            "api_keys_count": app_keys_count,
-            "header_name": app_settings.API_KEY_HEADER_NAME,
-            "api_keys_source": app_settings.API_KEYS_SOURCE,
-            "auth_enabled_source": app_settings.ENABLE_API_KEY_AUTH_SOURCE,
+        "settings": {
+            "auth_enabled": auth_enabled,
+            "api_keys_configured": keys_configured,
+            "api_keys_count": keys_count,
+            "header_name": settings.API_KEY_HEADER_NAME,
         },
         "inconsistent_config": inconsistent_config,
         "recommendations": recommendations

@@ -7,7 +7,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Union
 import redis
-from app.config import settings
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

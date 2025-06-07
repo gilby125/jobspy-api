@@ -5,11 +5,17 @@ import time
 import uuid
 import traceback
 
-from app.models import JobSearchParams, JobResponse, PaginatedJobResponse
-from app.config import settings
+from app.pydantic_models import JobSearchParams, JobResponse, PaginatedJobResponse
+from app.core.config import settings
 from app.middleware.api_key_auth import get_api_key
 from app.services.job_service import JobService
+from sqlalchemy import text
+from datetime import datetime
+import json
+from app.db.database import get_db
 from app.utils.validation_helpers import VALID_PARAMETERS, get_parameter_suggestion, generate_error_suggestions
+from sqlalchemy.orm import Session
+from app.routes.api_helpers import parse_date_posted
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -141,6 +147,7 @@ def validate_job_search_params(
 @router.get("/search_jobs", response_model=Union[JobResponse, PaginatedJobResponse], dependencies=[Depends(get_api_key)])
 async def search_jobs(
     request: Request,
+    db: Session = Depends(get_db),
     # Pagination parameters
     paginate: bool = Query(False, description="Enable pagination"),
     page: int = Query(1, ge=1, description="Page number (if pagination enabled)"),
@@ -262,6 +269,130 @@ async def search_jobs(
         # Execute the search
         jobs_df, is_cached = JobService.search_jobs(params.dict(exclude_none=True))
         
+        # Save jobs to database if we got results and it's not cached
+        if not jobs_df.empty and not is_cached:
+            try:
+                # Create a simple scraping run record for tracking
+                search_terms_array = f"ARRAY['{params.search_term}']" if params.search_term else "ARRAY[]::varchar[]"
+                locations_array = f"ARRAY['{params.location}']" if params.location else "ARRAY[]::varchar[]"
+                
+                result = db.execute(text(f"""
+                    INSERT INTO scraping_runs (source_platform, search_terms, locations, start_time, 
+                                             status, jobs_found, jobs_processed, jobs_skipped, 
+                                             error_count, config_used)
+                    VALUES (:source_platform, {search_terms_array}, {locations_array}, :start_time, 
+                            :status, :jobs_found, :jobs_processed, :jobs_skipped, 
+                            :error_count, :config_used)
+                    RETURNING id
+                """), {
+                    "source_platform": ",".join(params.site_name),
+                    "start_time": datetime.now(),
+                    "status": "completed",
+                    "jobs_found": len(jobs_df),
+                    "jobs_processed": 0,  # We'll update this as we insert jobs
+                    "jobs_skipped": 0,
+                    "error_count": 0,
+                    "config_used": json.dumps(params.dict(exclude_none=True))
+                })
+                scraping_run_id = result.fetchone()[0]
+                
+                # Process jobs and save to database
+                jobs_data = jobs_df.to_dict('records')
+                jobs_inserted = 0
+                
+                for job_data in jobs_data:
+                    try:
+                        # Create/find company
+                        company_result = db.execute(text("""
+                            INSERT INTO companies (name, domain, created_at) 
+                            VALUES (:name, :domain, :created_at)
+                            ON CONFLICT (name, domain) DO UPDATE SET name = EXCLUDED.name
+                            RETURNING id
+                        """), {
+                            "name": job_data.get('company', 'Unknown Company'),
+                            "domain": None,  # Set domain to NULL for now
+                            "created_at": datetime.now()
+                        })
+                        company_id = company_result.fetchone()[0]
+                        
+                        # Create/find location  
+                        location_parts = job_data.get('location', '').split(',')
+                        city = location_parts[0].strip() if location_parts else ''
+                        state = location_parts[1].strip() if len(location_parts) > 1 else ''
+                        
+                        location_result = db.execute(text("""
+                            INSERT INTO locations (city, state, country, created_at) 
+                            VALUES (:city, :state, :country, :created_at)
+                            ON CONFLICT (city, state, country) DO UPDATE SET city = EXCLUDED.city
+                            RETURNING id
+                        """), {
+                            "city": city,
+                            "state": state,
+                            "country": "USA",
+                            "created_at": datetime.now()
+                        })
+                        location_id = location_result.fetchone()[0]
+                        
+                        # Insert job posting
+                        job_result = db.execute(text("""
+                            INSERT INTO job_postings (
+                                external_id, title, company_id, location_id, description,
+                                job_type, salary_min, salary_max, salary_currency, 
+                                is_remote, job_url, source_platform, date_posted, 
+                                date_scraped, last_seen, is_active
+                            ) VALUES (
+                                :external_id, :title, :company_id, :location_id, :description, 
+                                :job_type, :salary_min, :salary_max, :salary_currency,
+                                :is_remote, :job_url, :source_platform, :date_posted,
+                                :date_scraped, :last_seen, :is_active
+                            )
+                            ON CONFLICT (external_id, source_platform) DO UPDATE SET
+                                last_seen = :last_seen,
+                                is_active = :is_active
+                            RETURNING id
+                        """), {
+                            "external_id": job_data.get('id', ''),
+                            "title": job_data.get('title', '')[:255],  # Limit length
+                            "company_id": company_id,
+                            "location_id": location_id,
+                            "description": job_data.get('description', ''),
+                            "job_type": job_data.get('job_type'),
+                            "salary_min": job_data.get('min_amount'),
+                            "salary_max": job_data.get('max_amount'), 
+                            "salary_currency": job_data.get('currency', 'USD'),
+                            "is_remote": job_data.get('is_remote', False),
+                            "job_url": job_data.get('job_url', ''),
+                            "source_platform": job_data.get('site', ''),
+                            "date_posted": parse_date_posted(job_data.get('date_posted')),
+                            "date_scraped": datetime.now(),
+                            "last_seen": datetime.now(),
+                            "is_active": True
+                        })
+                        jobs_inserted += 1
+                            
+                    except Exception as job_error:
+                        logger.warning(f"Failed to insert job {job_data.get('title', 'Unknown')}: {job_error}")
+                        continue
+                
+                # Update the scraping run with final stats
+                db.execute(text("""
+                    UPDATE scraping_runs 
+                    SET jobs_processed = :jobs_processed, end_time = :end_time
+                    WHERE id = :id
+                """), {
+                    "jobs_processed": jobs_inserted,
+                    "end_time": datetime.now(),
+                    "id": scraping_run_id
+                })
+                
+                db.commit()
+                logger.info(f"Saved {jobs_inserted} jobs from {','.join(params.site_name)} to database")
+                        
+            except Exception as e:
+                logger.error(f"Error saving jobs to database: {e}")
+                db.rollback()
+                # Continue with the response even if database save fails
+        
         # Return results - either paginated or all at once
         if paginate:
             # Calculate pagination
@@ -357,6 +488,7 @@ async def search_jobs(
 async def search_jobs_post(
     params: JobSearchParams,
     request: Request,
+    db: Session = Depends(get_db),
 ):
     """
     Search for jobs across multiple platforms using POST method.
@@ -383,6 +515,29 @@ async def search_jobs_post(
     try:
         # Execute the search
         jobs_df, is_cached = JobService.search_jobs(params.dict(exclude_none=True))
+        
+        # Save jobs to database if we got results and it's not cached
+        if not jobs_df.empty and not is_cached:
+            try:
+                from app.services.job_tracking_service import JobTrackingService
+                job_tracking_service = JobTrackingService()
+                jobs_data = jobs_df.to_dict('records')
+                
+                # Process each site separately for better tracking
+                for site_name in params.site_name:
+                    site_jobs = [job for job in jobs_data if job.get('site') == site_name]
+                    if site_jobs:
+                        site_stats = job_tracking_service.process_scraped_jobs(
+                            jobs_data=site_jobs,
+                            source_site=site_name,
+                            search_params=params.dict(exclude_none=True),
+                            db=db
+                        )
+                        logger.info(f"Saved {site_stats['new_jobs']} new jobs from {site_name} to database")
+                        
+            except Exception as e:
+                logger.error(f"Error saving jobs to database: {e}")
+                # Continue with the response even if database save fails
         
         # Return all results without pagination
         jobs_list = jobs_df.to_dict('records') if not jobs_df.empty else []

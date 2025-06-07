@@ -9,7 +9,7 @@ from sqlalchemy import and_, or_, func
 
 from app.middleware.api_key_auth import get_api_key
 from app.db.database import get_db
-from app.models import JobSearchParams, JobResponse, PaginatedJobResponse
+from app.pydantic_models import JobSearchParams, JobResponse, PaginatedJobResponse
 from app.models.tracking_models import JobPosting, Company, Location, JobCategory, ScrapingRun
 from app.services.job_tracking_service import job_tracking_service
 from app.cache import cache

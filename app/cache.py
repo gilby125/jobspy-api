@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional, Tuple
 import hashlib
 import json
 import pandas as pd
-from app.config import settings
+from app.core.config import settings
 
 class JobSearchCache:
     def __init__(self):

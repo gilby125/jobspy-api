@@ -14,7 +14,7 @@ from app.workers.orchestrator import orchestrator
 from app.workers.message_protocol import ScraperType
 from app.services.job_tracking_service import job_tracking_service
 from app.db.database import get_db
-from app.config import settings
+from app.core.config import settings
 from app.cache import cache
 
 logger = logging.getLogger(__name__)

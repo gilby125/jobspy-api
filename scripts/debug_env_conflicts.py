@@ -113,7 +113,7 @@ def debug_env_conflicts():
     # Check app config (after environment variables are resolved)
     print("\n" + yellow("Checking application config:"))
     try:
-        from app.config import settings
+        from app.core.config import settings
         from app.utils.auth_health import check_auth_configuration
         
         # Check for auth configuration inconsistencies

@@ -6,7 +6,7 @@ import os
 import logging
 from celery import Celery
 from celery.schedules import crontab
-from app.config import settings
+from app.core.config import settings
 
 # Configure logging
 logging.basicConfig(

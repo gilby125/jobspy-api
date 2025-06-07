@@ -8,7 +8,7 @@ from alembic import context
 # Add parent directory to path so we can import app modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.config import settings
+from app.core.config import settings
 from app.db.database import Base
 
 # Import all models to ensure they're registered with Base

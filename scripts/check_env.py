@@ -30,7 +30,7 @@ def check_env():
     
     print("\n=== Testing Settings Loading ===")
     try:
-        from app.config import settings
+        from app.core.config import settings
         
         print(f"API_KEYS: {settings.API_KEYS}")
         print(f"ENABLE_API_KEY_AUTH: {settings.ENABLE_API_KEY_AUTH}")

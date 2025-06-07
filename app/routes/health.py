@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Request, Depends, HTTPException, status
-from app.models import HealthCheck
-from app.core.config import settings as core_settings
-from app.config import settings as app_settings
+from app.pydantic_models import HealthCheck
+from app.core.config import settings
 import logging
 import os
 import platform
@@ -14,7 +13,7 @@ logger = logging.getLogger(__name__)
 # Create a dependency to check if health endpoints are enabled
 async def verify_health_enabled():
     """Verify that health endpoints are enabled via configuration."""
-    if not app_settings.ENABLE_HEALTH_ENDPOINTS:
+    if not settings.ENABLE_HEALTH_ENDPOINTS:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Health endpoints are disabled"
@@ -33,33 +32,33 @@ async def health_check():
     return HealthCheck(
         status="ok",
         version="1.0.0",
-        environment=app_settings.ENVIRONMENT,
-        log_level=app_settings.LOG_LEVEL,
+        environment=settings.ENVIRONMENT,
+        log_level=settings.LOG_LEVEL,
         auth={
-            "enabled": app_settings.ENABLE_API_KEY_AUTH,
-            "api_keys_configured": bool(app_settings.API_KEYS),
-            "api_keys_count": len(app_settings.API_KEYS) if app_settings.API_KEYS else 0,
+            "enabled": settings.ENABLE_API_KEY_AUTH,
+            "api_keys_configured": bool(settings.API_KEYS),
+            "api_keys_count": len(settings.api_keys_list),
             "inconsistent": auth_status["inconsistent_config"],
         },
         rate_limiting={
-            "enabled": app_settings.RATE_LIMIT_ENABLED,
-            "requests_limit": app_settings.RATE_LIMIT_REQUESTS,
-            "timeframe_seconds": app_settings.RATE_LIMIT_TIMEFRAME,
+            "enabled": settings.RATE_LIMIT_ENABLED,
+            "requests_limit": settings.RATE_LIMIT_REQUESTS,
+            "timeframe_seconds": settings.RATE_LIMIT_TIMEFRAME,
         },
         cache={
-            "enabled": app_settings.ENABLE_CACHE,
-            "expiry_seconds": app_settings.CACHE_EXPIRY,
+            "enabled": settings.ENABLE_CACHE,
+            "expiry_seconds": settings.CACHE_EXPIRY,
         },
         health_endpoints={
-            "enabled": app_settings.ENABLE_HEALTH_ENDPOINTS,
-            "detailed_health": app_settings.ENABLE_DETAILED_HEALTH,
+            "enabled": settings.ENABLE_HEALTH_ENDPOINTS,
+            "detailed_health": settings.ENABLE_DETAILED_HEALTH,
         },
         config={
-            "default_site_names": app_settings.DEFAULT_SITE_NAMES,
-            "default_results_wanted": app_settings.DEFAULT_RESULTS_WANTED,
-            "default_distance": app_settings.DEFAULT_DISTANCE,
-            "default_description_format": app_settings.DEFAULT_DESCRIPTION_FORMAT,
-            "default_country_indeed": app_settings.DEFAULT_COUNTRY_INDEED,
+            "default_site_names": settings.DEFAULT_SITE_NAMES,
+            "default_results_wanted": settings.DEFAULT_RESULTS_WANTED,
+            "default_distance": settings.DEFAULT_DISTANCE,
+            "default_description_format": settings.DEFAULT_DESCRIPTION_FORMAT,
+            "default_country_indeed": settings.DEFAULT_COUNTRY_INDEED,
         },
         timestamp=time.time()
     )
@@ -83,11 +82,11 @@ async def auth_status(request: Request):
     api_key_in_request = request.headers.get(api_key_header_name)
     
     return {
-        "api_key_configured": bool(core_settings.API_KEY),
+        "api_key_configured": bool(settings.api_keys_list),
         "api_key_header_name": api_key_header_name,
         "api_key_in_request": bool(api_key_in_request),
-        "authentication_enabled": bool(core_settings.API_KEY),
-        "environment": core_settings.ENVIRONMENT if hasattr(core_settings, "ENVIRONMENT") else app_settings.ENVIRONMENT
+        "authentication_enabled": settings.ENABLE_API_KEY_AUTH,
+        "environment": settings.ENVIRONMENT
     }
 
 @router.get("/api-config", tags=["Health"], dependencies=[Depends(verify_health_enabled)])
@@ -98,7 +97,7 @@ async def api_config():
     logger.info("API configuration endpoint called")
     
     # Only provide detailed info if it's enabled
-    if not app_settings.ENABLE_DETAILED_HEALTH:
+    if not settings.ENABLE_DETAILED_HEALTH:
         return {
             "status": "ok",
             "message": "Detailed health information is disabled. Enable with ENABLE_DETAILED_HEALTH=true"
@@ -112,26 +111,26 @@ async def api_config():
     
     # Configuration information
     config = {
-        "environment": app_settings.ENVIRONMENT,
-        "log_level": app_settings.LOG_LEVEL,
+        "environment": settings.ENVIRONMENT,
+        "log_level": settings.LOG_LEVEL,
         "authentication": {
-            "enabled": app_settings.ENABLE_API_KEY_AUTH,
-            "api_keys_configured": bool(app_settings.API_KEYS),
-            "api_keys_count": len(app_settings.API_KEYS) if app_settings.API_KEYS else 0,
-            "header_name": app_settings.API_KEY_HEADER_NAME,
+            "enabled": settings.ENABLE_API_KEY_AUTH,
+            "api_keys_configured": bool(settings.API_KEYS),
+            "api_keys_count": len(settings.API_KEYS) if settings.API_KEYS else 0,
+            "header_name": settings.API_KEY_HEADER_NAME,
         },
         "rate_limiting": {
-            "enabled": app_settings.RATE_LIMIT_ENABLED,
-            "requests_limit": app_settings.RATE_LIMIT_REQUESTS,
-            "timeframe_seconds": app_settings.RATE_LIMIT_TIMEFRAME,
+            "enabled": settings.RATE_LIMIT_ENABLED,
+            "requests_limit": settings.RATE_LIMIT_REQUESTS,
+            "timeframe_seconds": settings.RATE_LIMIT_TIMEFRAME,
         },
         "caching": {
-            "enabled": app_settings.ENABLE_CACHE,
-            "expiry_seconds": app_settings.CACHE_EXPIRY,
+            "enabled": settings.ENABLE_CACHE,
+            "expiry_seconds": settings.CACHE_EXPIRY,
         },
         "health_endpoints": {
-            "enabled": app_settings.ENABLE_HEALTH_ENDPOINTS,
-            "detailed_health": app_settings.ENABLE_DETAILED_HEALTH,
+            "enabled": settings.ENABLE_HEALTH_ENDPOINTS,
+            "detailed_health": settings.ENABLE_DETAILED_HEALTH,
         },
     }
     
@@ -150,14 +149,14 @@ async def config_sources():
     logger.info("Configuration sources endpoint called")
     
     # Only provide detailed info if it's enabled
-    if not app_settings.ENABLE_DETAILED_HEALTH:
+    if not settings.ENABLE_DETAILED_HEALTH:
         return {
             "status": "ok",
             "message": "Detailed health information is disabled. Enable with ENABLE_DETAILED_HEALTH=true"
         }
     
     # Get all settings with their sources
-    settings_with_sources = app_settings.get_all_settings()
+    settings_with_sources = settings.get_all_settings()
     
     # Format for output, focusing on key settings
     important_settings = [
