@@ -31,5 +31,6 @@ echo "==========================================="
 # Run the confirmation script
 bash /app/scripts/confirm_env.sh
 
-# Start the FastAPI application
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+# Change to app directory and start the FastAPI application
+cd /app
+exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
