@@ -1,0 +1,166 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: jobspy-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-jobspy_db}
+      - POSTGRES_USER=${POSTGRES_USER:-jobspy_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password_123}
+      - TIMESCALEDB_TELEMETRY=off
+    # Remove port mapping to avoid conflicts - only internal access needed
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jobspy_user} -d ${POSTGRES_DB:-jobspy_db}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - jobspy-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: jobspy-redis
+    # Remove port mapping to avoid conflicts - only internal access needed
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - jobspy-network
+
+  jobspy-api:
+    image: ghcr.io/gilby125/jobspy-api:latest
+    container_name: jobspy-docker-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8787:8000"  # Only expose the API port
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy_user}:${POSTGRES_PASSWORD:-secure_password_123}@postgres:5432/${POSTGRES_DB:-jobspy_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      
+      # API Security
+      - API_KEYS=${API_KEYS:-test-api-key-123}
+      - ENABLE_API_KEY_AUTH=${ENABLE_API_KEY_AUTH:-true}
+      - API_KEY_HEADER_NAME=x-api-key
+      
+      # Rate Limiting
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-true}
+      - RATE_LIMIT_REQUESTS=${RATE_LIMIT_REQUESTS:-100}
+      - RATE_LIMIT_TIMEFRAME=${RATE_LIMIT_TIMEFRAME:-3600}
+      
+      # JobSpy Default Settings
+      - DEFAULT_SITE_NAMES=${DEFAULT_SITE_NAMES:-indeed,linkedin,zip_recruiter,glassdoor}
+      - DEFAULT_RESULTS_WANTED=${DEFAULT_RESULTS_WANTED:-20}
+      - DEFAULT_DISTANCE=${DEFAULT_DISTANCE:-50}
+      - DEFAULT_DESCRIPTION_FORMAT=${DEFAULT_DESCRIPTION_FORMAT:-markdown}
+      - DEFAULT_COUNTRY_INDEED=${DEFAULT_COUNTRY_INDEED:-USA}
+      
+      # Caching
+      - ENABLE_CACHE=${ENABLE_CACHE:-true}
+      - CACHE_EXPIRY=${CACHE_EXPIRY:-3600}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      
+      # CORS
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      
+      # Health Endpoints
+      - ENABLE_HEALTH_ENDPOINTS=${ENABLE_HEALTH_ENDPOINTS:-true}
+      - ENABLE_DETAILED_HEALTH=${ENABLE_DETAILED_HEALTH:-true}
+      
+      # API Documentation
+      - ENABLE_SWAGGER_UI=${ENABLE_SWAGGER_UI:-true}
+      - ENABLE_REDOC=${ENABLE_REDOC:-true}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - jobspy-network
+
+  celery-worker:
+    image: ghcr.io/gilby125/jobspy-api:latest
+    container_name: jobspy-celery-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy_user}:${POSTGRES_PASSWORD:-secure_password_123}@postgres:5432/${POSTGRES_DB:-jobspy_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      
+      # API Security
+      - API_KEYS=${API_KEYS:-test-api-key-123}
+      - ENABLE_API_KEY_AUTH=${ENABLE_API_KEY_AUTH:-true}
+      
+      # JobSpy Default Settings
+      - DEFAULT_SITE_NAMES=${DEFAULT_SITE_NAMES:-indeed,linkedin,zip_recruiter,glassdoor}
+      - DEFAULT_RESULTS_WANTED=${DEFAULT_RESULTS_WANTED:-20}
+      - DEFAULT_DISTANCE=${DEFAULT_DISTANCE:-50}
+      - DEFAULT_DESCRIPTION_FORMAT=${DEFAULT_DESCRIPTION_FORMAT:-markdown}
+      - DEFAULT_COUNTRY_INDEED=${DEFAULT_COUNTRY_INDEED:-USA}
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    restart: unless-stopped
+    command: >
+      /bin/bash -c "cd /app && celery -A app.celery_app worker --loglevel=info --concurrency=2"
+    networks:
+      - jobspy-network
+
+  celery-beat:
+    image: ghcr.io/gilby125/jobspy-api:latest
+    container_name: jobspy-celery-beat
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy_user}:${POSTGRES_PASSWORD:-secure_password_123}@postgres:5432/${POSTGRES_DB:-jobspy_db}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    restart: unless-stopped
+    command: >
+      /bin/bash -c "cd /app && celery -A app.celery_app beat --loglevel=info"
+    networks:
+      - jobspy-network
+
+networks:
+  jobspy-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
