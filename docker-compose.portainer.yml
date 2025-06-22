@@ -37,7 +37,9 @@ services:
       - jobspy-network
 
   jobspy-api:
-    image: ghcr.io/gilby125/jobspy-api:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: jobspy-docker-api
     depends_on:
       postgres:
@@ -99,7 +101,9 @@ services:
       - jobspy-network
 
   celery-worker:
-    image: ghcr.io/gilby125/jobspy-api:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: jobspy-celery-worker
     depends_on:
       postgres:
@@ -134,7 +138,9 @@ services:
       - jobspy-network
 
   celery-beat:
-    image: ghcr.io/gilby125/jobspy-api:latest
+    build: 
+      context: .
+      dockerfile: Dockerfile
     container_name: jobspy-celery-beat
     depends_on:
       postgres:
