@@ -148,7 +148,7 @@ services:
       - ./logs:/app/logs
     restart: unless-stopped
     command: >
-      /bin/bash -c "cd /app && celery -A app.celery_app worker --loglevel=info --concurrency=2"
+      /bin/bash -c "cd /app && python -m celery -A app.celery_app worker --loglevel=info --concurrency=2"
 
   celery-beat:
     build: .
@@ -179,7 +179,7 @@ services:
       - ./logs:/app/logs
     restart: unless-stopped
     command: >
-      /bin/bash -c "cd /app && celery -A app.celery_app beat --loglevel=info"
+      /bin/bash -c "cd /app && python -m celery -A app.celery_app beat --loglevel=info"
 
 volumes:
   postgres_data:
