@@ -46,16 +46,6 @@ except ImportError as e:
     # Fall back to empty Base if models can't be imported
     Base = declarative_base()
 
-# Simple example model for CRUD operations
-from sqlalchemy import Column, Integer, String, Text
-class Item(Base):
-    """Simple example model for testing CRUD operations."""
-    __tablename__ = "items"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    title = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-
 def get_db():
     """
     Get a database session with proper error handling.

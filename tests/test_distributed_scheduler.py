@@ -27,33 +27,32 @@ async def redis_client():
 @pytest.fixture
 def db_session():
     """Database session for testing"""
-    # Use in-memory SQLite for tests
-    engine = create_engine("sqlite:///:memory:")
+    # Use real PostgreSQL for tests
+    import os
+    from sqlalchemy.pool import QueuePool
+    from app.models.tracking_models import Base
+    
+    test_db_url = os.getenv("TEST_DATABASE_URL", "postgresql://jobspy:jobspy_password@localhost:5432/test_jobspy")
+    engine = create_engine(
+        test_db_url,
+        poolclass=QueuePool,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,
+        echo=False
+    )
+    
+    # Create all tables using the proper Base metadata
+    Base.metadata.create_all(bind=engine)
+    
     SessionLocal = sessionmaker(bind=engine)
-    
-    # Create tables
-    engine.execute("""
-        CREATE TABLE scraping_runs (
-            id INTEGER PRIMARY KEY,
-            source_platform TEXT,
-            search_terms TEXT,
-            locations TEXT,
-            start_time TIMESTAMP,
-            end_time TIMESTAMP,
-            status TEXT,
-            jobs_found INTEGER DEFAULT 0,
-            jobs_processed INTEGER DEFAULT 0,
-            jobs_skipped INTEGER DEFAULT 0,
-            error_count INTEGER DEFAULT 0,
-            config_used TEXT,
-            error_details TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    
     session = SessionLocal()
     yield session
     session.close()
+    
+    # Clean up tables after test
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
 
 
 @pytest.fixture
@@ -175,7 +174,7 @@ class TestDistributedScheduler:
             "scheduled_time": datetime.now().isoformat()
         }
         
-        # Insert test record in database
+        # Insert test record in database using proper PostgreSQL syntax
         db_session.execute(text("""
             INSERT INTO scraping_runs (id, source_platform, search_terms, locations, 
                                      start_time, status, jobs_found, jobs_processed, 
@@ -284,7 +283,7 @@ class TestDistributedScheduler:
             }
         }
         
-        # Insert test record
+        # Insert test record using proper PostgreSQL syntax
         db_session.execute(text("""
             INSERT INTO scraping_runs (id, source_platform, search_terms, locations, 
                                      start_time, status, jobs_found, jobs_processed, 

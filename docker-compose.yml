@@ -1,3 +1,4 @@
+version: '3.8'
 
 services:
   postgres:
@@ -106,6 +107,79 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  celery-worker:
+    build: .
+    image: jobspy-docker-api
+    container_name: jobspy-celery-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql://jobspy:jobspy_password@postgres:5432/jobspy
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      # The most important settings that need consistent values
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENABLE_API_KEY_AUTH=${ENABLE_API_KEY_AUTH:-false}
+      - API_KEYS=${API_KEYS:-}
+      
+      # JobSpy Default Settings
+      - DEFAULT_SITE_NAMES=${DEFAULT_SITE_NAMES:-indeed,linkedin,zip_recruiter,glassdoor,google,bayt,naukri}
+      - DEFAULT_RESULTS_WANTED=${DEFAULT_RESULTS_WANTED:-20}
+      - DEFAULT_DISTANCE=${DEFAULT_DISTANCE:-50}
+      - DEFAULT_DESCRIPTION_FORMAT=${DEFAULT_DESCRIPTION_FORMAT:-markdown}
+      - DEFAULT_COUNTRY_INDEED=${DEFAULT_COUNTRY_INDEED:-USA}
+      
+      # Proxy Configuration
+      - DEFAULT_PROXIES=${DEFAULT_PROXIES}
+      - CA_CERT_PATH=${CA_CERT_PATH}
+      
+      # Logging
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    volumes:
+      - ./app:/app/app  # Mount app directory for live code updates
+      - ./logs:/app/logs
+    restart: unless-stopped
+    command: >
+      /bin/bash -c "cd /app && celery -A app.celery_app worker --loglevel=info --concurrency=2"
+
+  celery-beat:
+    build: .
+    image: jobspy-docker-api
+    container_name: jobspy-celery-beat
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      # Database Configuration
+      - DATABASE_URL=postgresql://jobspy:jobspy_password@postgres:5432/jobspy
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      # The most important settings that need consistent values
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENABLE_API_KEY_AUTH=${ENABLE_API_KEY_AUTH:-false}
+      - API_KEYS=${API_KEYS:-}
+      
+      # Logging
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    volumes:
+      - ./app:/app/app  # Mount app directory for live code updates
+      - ./logs:/app/logs
+    restart: unless-stopped
+    command: >
+      /bin/bash -c "cd /app && celery -A app.celery_app beat --loglevel=info"
 
 volumes:
   postgres_data:

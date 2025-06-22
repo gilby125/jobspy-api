@@ -96,6 +96,31 @@ class Settings(BaseSettings):
         if self.CORS_ORIGINS == "*":
             return ["*"]
         return parse_list(self.CORS_ORIGINS)
+    
+    def get_all_settings(self) -> dict:
+        """Get all settings with their sources for debugging."""
+        settings_dict = {}
+        
+        for field_name, field_info in self.__fields__.items():
+            value = getattr(self, field_name)
+            env_name = field_name.upper()
+            
+            # Determine the source of the setting
+            env_value = os.environ.get(env_name)
+            if env_value is not None:
+                source = "environment"
+            elif hasattr(field_info, 'default') and field_info.default is not None:
+                source = "default"
+            else:
+                source = "unset"
+            
+            settings_dict[field_name] = {
+                "value": value,
+                "source": source,
+                "env_name": env_name
+            }
+        
+        return settings_dict
 
     class Config:
         case_sensitive = True

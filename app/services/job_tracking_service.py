@@ -376,62 +376,73 @@ class JobTrackingService:
         Returns:
             Analytics dictionary
         """
-        # Base query
-        query = db.query(JobPosting)
+        # Use raw SQL to avoid ORM model mismatches
+        from datetime import timedelta
+        from sqlalchemy import text
+        cutoff_date = datetime.utcnow() - timedelta(days=days_back)
         
-        # Apply filters
-        cutoff_date = datetime.utcnow().replace(day=datetime.utcnow().day - days_back)
-        query = query.filter(JobPosting.first_seen_at >= cutoff_date)
+        # Build WHERE clause
+        where_conditions = ["jp.date_scraped >= :cutoff_date", "jp.is_active = true"]
+        params = {"cutoff_date": cutoff_date}
         
         if company_id:
-            query = query.filter(JobPosting.company_id == company_id)
+            where_conditions.append("jp.company_id = :company_id")
+            params["company_id"] = company_id
         
         if location_id:
-            query = query.filter(JobPosting.location_id == location_id)
+            where_conditions.append("jp.location_id = :location_id")
+            params["location_id"] = location_id
         
-        # Calculate metrics
-        total_jobs = query.count()
-        active_jobs = query.filter(JobPosting.status == 'active').count()
+        where_clause = " AND ".join(where_conditions)
+        
+        # Calculate total jobs
+        total_jobs_sql = f"SELECT COUNT(*) FROM job_postings jp WHERE {where_clause}"
+        total_jobs = db.execute(text(total_jobs_sql), params).fetchone()[0]
+        
+        # Calculate active jobs (all jobs matching our criteria are already filtered for is_active=true)
+        active_jobs = total_jobs
         
         # Top companies
-        top_companies = db.query(
-            Company.name,
-            func.count(JobPosting.id).label('job_count')
-        ).join(JobPosting).filter(
-            JobPosting.first_seen_at >= cutoff_date
-        ).group_by(Company.name).order_by(
-            func.count(JobPosting.id).desc()
-        ).limit(10).all()
+        top_companies_sql = f"""
+            SELECT c.name, COUNT(jp.id) as job_count
+            FROM job_postings jp 
+            JOIN companies c ON jp.company_id = c.id
+            WHERE {where_clause}
+            GROUP BY c.name 
+            ORDER BY COUNT(jp.id) DESC 
+            LIMIT 10
+        """
+        top_companies = db.execute(text(top_companies_sql), params).fetchall()
         
         # Job type distribution
-        job_types = db.query(
-            JobPosting.job_type,
-            func.count(JobPosting.id).label('count')
-        ).filter(
-            JobPosting.first_seen_at >= cutoff_date
-        ).group_by(JobPosting.job_type).all()
+        job_types_sql = f"""
+            SELECT jp.job_type, COUNT(jp.id) as count
+            FROM job_postings jp 
+            WHERE {where_clause} AND jp.job_type IS NOT NULL
+            GROUP BY jp.job_type
+        """
+        job_types = db.execute(text(job_types_sql), params).fetchall()
         
         # Salary trends
-        salary_stats = db.query(
-            func.avg(JobPosting.salary_min).label('avg_min_salary'),
-            func.avg(JobPosting.salary_max).label('avg_max_salary'),
-            func.count(JobPosting.salary_min).label('salary_count')
-        ).filter(
-            and_(
-                JobPosting.first_seen_at >= cutoff_date,
-                JobPosting.salary_min.isnot(None)
-            )
-        ).first()
+        salary_stats_sql = f"""
+            SELECT 
+                AVG(jp.salary_min) as avg_min_salary,
+                AVG(jp.salary_max) as avg_max_salary,
+                COUNT(jp.salary_min) as salary_count
+            FROM job_postings jp 
+            WHERE {where_clause} AND jp.salary_min IS NOT NULL
+        """
+        salary_stats = db.execute(text(salary_stats_sql), params).fetchone()
         
         return {
             'total_jobs': total_jobs,
             'active_jobs': active_jobs,
-            'top_companies': [{'name': name, 'job_count': count} for name, count in top_companies],
-            'job_type_distribution': [{'type': jt, 'count': count} for jt, count in job_types if jt],
+            'top_companies': [{'name': row[0], 'job_count': row[1]} for row in top_companies],
+            'job_type_distribution': [{'type': row[0], 'count': row[1]} for row in job_types if row[0]],
             'salary_trends': {
-                'avg_min_salary': float(salary_stats.avg_min_salary) if salary_stats.avg_min_salary else None,
-                'avg_max_salary': float(salary_stats.avg_max_salary) if salary_stats.avg_max_salary else None,
-                'salary_sample_size': salary_stats.salary_count
+                'avg_min_salary': float(salary_stats[0]) if salary_stats[0] else None,
+                'avg_max_salary': float(salary_stats[1]) if salary_stats[1] else None,
+                'salary_sample_size': salary_stats[2] if salary_stats[2] else 0
             },
             'period_days': days_back
         }

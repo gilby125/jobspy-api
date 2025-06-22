@@ -3,6 +3,7 @@
  - Jobspy api docs and openapi.json is @localhost:8787/docs & http://localhost:8787/openapi.json when the docker container is running
 
 ## User Instructions
+
  - Do not lie
  - Use your MCP servers and suggest new ones
  - refer to all .Md files in the directory and keep them updated with changes and progress at milestones

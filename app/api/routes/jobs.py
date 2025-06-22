@@ -4,10 +4,10 @@ from typing import Optional, List, Dict, Any
 import json
 import csv
 import io
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import and_, or_, func
 
-from app.middleware.api_key_auth import get_api_key
+from app.api.deps import get_api_key
 from app.db.database import get_db
 from app.pydantic_models import JobSearchParams, JobResponse, PaginatedJobResponse
 from app.models.tracking_models import JobPosting, Company, Location, JobCategory, ScrapingRun
@@ -65,8 +65,14 @@ async def search_jobs(
                 return _create_csv_response(cached_result['jobs'])
             return PaginatedJobResponse(**cached_result, cached=True)
     
-    # Build query
-    query = db.query(JobPosting).join(Company).outerjoin(Location).outerjoin(JobCategory)
+    # Build query with eager loading to prevent N+1 queries
+    query = db.query(JobPosting).join(Company).outerjoin(Location).outerjoin(JobCategory).options(
+        joinedload(JobPosting.company),
+        joinedload(JobPosting.location),
+        joinedload(JobPosting.job_category),
+        selectinload(JobPosting.job_sources),
+        joinedload(JobPosting.job_metrics)
+    )
     
     # Apply filters
     if search_term:
@@ -295,35 +301,53 @@ async def get_locations(
 
 @router.get("/scraping-runs", response_model=List[Dict[str, Any]])
 async def get_scraping_runs(
-    source_site: Optional[str] = Query(None, description="Filter by source site"),
+    source_platform: Optional[str] = Query(None, description="Filter by source platform"),
     status: Optional[str] = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=200, description="Number of runs to return"),
     api_key: str = Depends(get_api_key),
     db: Session = Depends(get_db)
 ):
     """Get recent scraping run history."""
-    query = db.query(ScrapingRun)
+    from sqlalchemy import text
     
-    if source_site:
-        query = query.filter(ScrapingRun.source_site == source_site)
+    # Build WHERE clause
+    where_conditions = []
+    params = {"limit": limit}
+    
+    if source_platform:
+        where_conditions.append("source_platform = :source_platform")
+        params["source_platform"] = source_platform
     
     if status:
-        query = query.filter(ScrapingRun.status == status)
+        where_conditions.append("status = :status")
+        params["status"] = status
     
-    runs = query.order_by(ScrapingRun.started_at.desc()).limit(limit).all()
+    where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+    
+    runs_sql = f"""
+        SELECT 
+            id, source_platform, status, jobs_found, jobs_processed, jobs_skipped,
+            start_time, end_time, error_details, config_used
+        FROM scraping_runs 
+        WHERE {where_clause}
+        ORDER BY start_time DESC 
+        LIMIT :limit
+    """
+    
+    runs = db.execute(text(runs_sql), params).fetchall()
     
     return [
         {
-            'id': run.id,
-            'source_site': run.source_site,
-            'status': run.status,
-            'jobs_found': run.jobs_found,
-            'jobs_new': run.jobs_new,
-            'jobs_updated': run.jobs_updated,
-            'started_at': run.started_at.isoformat(),
-            'completed_at': run.completed_at.isoformat() if run.completed_at else None,
-            'error_message': run.error_message,
-            'search_params': run.search_params
+            'id': run[0],
+            'source_platform': run[1],
+            'status': run[2],
+            'jobs_found': run[3],
+            'jobs_processed': run[4],
+            'jobs_skipped': run[5],
+            'start_time': run[6].isoformat() if run[6] else None,
+            'end_time': run[7].isoformat() if run[7] else None,
+            'error_details': run[8],
+            'config_used': run[9]
         }
         for run in runs
     ]

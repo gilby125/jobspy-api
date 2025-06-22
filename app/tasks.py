@@ -46,15 +46,22 @@ def execute_job_search(self, search_id: int, search_params: dict):
         )
         
         # Execute the actual job search
-        jobs_df, _ = JobService.search_jobs({
+        import asyncio
+        jobs_df, _ = asyncio.run(JobService.search_jobs({
             "site_name": search_params.get("site_names", ["indeed"]),
             "search_term": search_params.get("search_term"),
             "location": search_params.get("location"),
             "results_wanted": search_params.get("results_wanted", 20),
             "country_indeed": search_params.get("country_indeed", "USA")
-        })
+        }))
         
         jobs_found = len(jobs_df) if not jobs_df.empty else 0
+        
+        # Save jobs to database if we found any
+        jobs_saved = 0
+        if jobs_found > 0:
+            jobs_saved = asyncio.run(JobService.save_jobs_to_database(jobs_df, search_params, db, search_id))
+            print(f"Saved {jobs_saved} out of {jobs_found} jobs to database")
         
         # Update with results
         db.execute(text("""

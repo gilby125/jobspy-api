@@ -81,35 +81,47 @@ class CeleryScheduler:
     async def cancel_search(self, search_id: int) -> bool:
         """Cancel a pending search"""
         try:
-            # Get the task ID
-            result = self.db.execute(text("""
-                SELECT config_used FROM scraping_runs 
-                WHERE id = :id AND status IN ('pending', 'running')
+            # First check if search exists and can be cancelled
+            check_result = self.db.execute(text("""
+                SELECT id, status, config_used FROM scraping_runs 
+                WHERE id = :id
             """), {"id": search_id})
             
-            row = result.fetchone()
-            if not row:
-                return False
+            search_row = check_result.fetchone()
+            if not search_row:
+                return False  # Search doesn't exist
             
-            config = json.loads(row.config_used) if row.config_used else {}
+            if search_row.status not in ('pending', 'running'):
+                return False  # Search cannot be cancelled (already completed/failed/cancelled)
+            
+            # Try to cancel Celery task if it exists
+            config = search_row.config_used if search_row.config_used else {}
+            # Handle both dict and JSON string formats
+            if isinstance(config, str):
+                config = json.loads(config)
             task_id = config.get("celery_task_id")
             
             if task_id:
-                # Revoke the Celery task
-                celery_app.control.revoke(task_id, terminate=True)
+                try:
+                    # Revoke the Celery task
+                    celery_app.control.revoke(task_id, terminate=True)
+                except Exception as e:
+                    print(f"Warning: Could not revoke Celery task {task_id}: {e}")
+                    # Continue with database cancellation even if Celery revoke fails
             
-            # Update database
-            self.db.execute(text("""
+            # Update database status to cancelled
+            update_result = self.db.execute(text("""
                 UPDATE scraping_runs 
                 SET status = 'cancelled', end_time = :end_time
                 WHERE id = :id AND status IN ('pending', 'running')
             """), {"id": search_id, "end_time": datetime.now()})
             
-            cancelled = self.db.commit()
-            return True
+            self.db.commit()
+            return update_result.rowcount > 0
             
         except Exception as e:
             print(f"Error cancelling search: {e}")
+            self.db.rollback()
             return False
     
     async def get_scheduled_searches(self, status: Optional[str] = None, limit: int = 50) -> List[Dict]:
@@ -147,6 +159,21 @@ class CeleryScheduler:
                 except (json.JSONDecodeError, TypeError, AttributeError):
                     config = {}
                 
+                # Calculate run count for recurring searches
+                run_count = 1  # Default for non-recurring or first run
+                if config.get("recurring", False) and config.get("name"):
+                    # Count how many completed runs exist for this recurring search name
+                    count_sql = """
+                        SELECT COUNT(*) FROM scraping_runs 
+                        WHERE config_used::text LIKE :search_pattern 
+                        AND status = 'completed'
+                    """
+                    search_name = config.get("name", "")
+                    count_result = self.db.execute(text(count_sql), {
+                        "search_pattern": f'%"name": "{search_name}"%'
+                    })
+                    run_count = count_result.fetchone()[0]
+
                 searches.append({
                     "id": row.id,
                     "name": config.get("name", f"Search {row.id}"),
@@ -160,6 +187,7 @@ class CeleryScheduler:
                     "created_at": row.created_at.isoformat() if row.created_at else None,
                     "recurring": config.get("recurring", False),
                     "recurring_interval": config.get("recurring_interval"),
+                    "run_count": run_count,
                     "search_params": config  # Include full config for API compatibility
                 })
             

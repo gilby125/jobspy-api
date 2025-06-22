@@ -18,30 +18,41 @@ class JobSearchCache:
         param_str = json.dumps(sorted_params, sort_keys=True)
         return hashlib.md5(param_str.encode()).hexdigest()
     
-    def get(self, params: Dict[str, Any]) -> Optional[pd.DataFrame]:
+    async def get(self, params_or_key) -> Optional[Any]:
         """Get cached results if they exist and are not expired"""
         if not self.enabled:
             return None
+        
+        # Handle both dict params and string keys
+        if isinstance(params_or_key, dict):
+            key = self._generate_key(params_or_key)
+        else:
+            key = params_or_key
             
-        key = self._generate_key(params)
         if key not in self.cache:
             return None
             
-        timestamp, df = self.cache[key]
+        timestamp, data = self.cache[key]
         if time.time() - timestamp > self.expiry:
             # Cache expired
             del self.cache[key]
             return None
             
-        return df
+        return data
     
-    def set(self, params: Dict[str, Any], df: pd.DataFrame) -> None:
+    async def set(self, params_or_key, data, expire: Optional[int] = None) -> None:
         """Cache search results"""
         if not self.enabled:
             return
+        
+        # Handle both dict params and string keys
+        if isinstance(params_or_key, dict):
+            key = self._generate_key(params_or_key)
+        else:
+            key = params_or_key
             
-        key = self._generate_key(params)
-        self.cache[key] = (time.time(), df)
+        expiry_time = expire or self.expiry
+        self.cache[key] = (time.time(), data)
     
     def clear(self) -> None:
         """Clear all cached data"""

@@ -7,7 +7,7 @@ import traceback
 
 from app.pydantic_models import JobSearchParams, JobResponse, PaginatedJobResponse
 from app.core.config import settings
-from app.middleware.api_key_auth import get_api_key
+from app.api.deps import get_api_key
 from app.services.job_service import JobService
 from sqlalchemy import text
 from datetime import datetime
@@ -242,13 +242,13 @@ async def search_jobs(
     
     # Create parameters object with all search parameters
     params = JobSearchParams(
-        site_name=site_name if site_name else settings.DEFAULT_SITE_NAMES,
+        site_name=site_name if site_name else settings.default_site_names_list,
         search_term=search_term,
         google_search_term=google_search_term,
         location=location,
         distance=distance if distance is not None else settings.DEFAULT_DISTANCE,
         job_type=job_type,
-        proxies=settings.DEFAULT_PROXIES if settings.DEFAULT_PROXIES else None,
+        proxies=settings.default_proxies_list if settings.default_proxies_list else None,
         is_remote=is_remote,
         results_wanted=results_wanted if results_wanted is not None else settings.DEFAULT_RESULTS_WANTED,
         hours_old=hours_old,
@@ -267,7 +267,7 @@ async def search_jobs(
     
     try:
         # Execute the search
-        jobs_df, is_cached = JobService.search_jobs(params.dict(exclude_none=True))
+        jobs_df, is_cached = await JobService.search_jobs(params.dict(exclude_none=True))
         
         # Save jobs to database if we got results and it's not cached
         if not jobs_df.empty and not is_cached:
@@ -514,7 +514,7 @@ async def search_jobs_post(
     
     try:
         # Execute the search
-        jobs_df, is_cached = JobService.search_jobs(params.dict(exclude_none=True))
+        jobs_df, is_cached = await JobService.search_jobs(params.dict(exclude_none=True))
         
         # Save jobs to database if we got results and it's not cached
         if not jobs_df.empty and not is_cached:

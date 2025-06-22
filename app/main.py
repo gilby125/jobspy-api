@@ -79,6 +79,14 @@ async def lifespan(app: FastAPI):
     # Log environment variables to help debugging
     log_environment_settings()
     
+    # Set API key auth globally
+    global ENABLE_API_KEY_AUTH
+    ENABLE_API_KEY_AUTH = get_env_bool("ENABLE_API_KEY_AUTH", default=True)
+    if ENABLE_API_KEY_AUTH:
+        logger.info("API key authentication is enabled")
+    else:
+        logger.warning("API key authentication is disabled. Set ENABLE_API_KEY_AUTH=true to enable.")
+    
     # Yield control to the application
     yield
     
@@ -128,24 +136,7 @@ app = FastAPI(
     swagger_ui_parameters={"defaultModelsExpandDepth": -1},
 )
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting up Job Spy FastAPI application")
-    
-    # Set API key auth
-    global ENABLE_API_KEY_AUTH
-    ENABLE_API_KEY_AUTH = get_env_bool("ENABLE_API_KEY_AUTH", default=True)
-    if ENABLE_API_KEY_AUTH:
-        logger.info("API key authentication is enabled")
-    else:
-        logger.warning("API key authentication is disabled. Set ENABLE_API_KEY_AUTH=true to enable.")
-    
-    # Additional startup logic
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down Job Spy FastAPI application")
-    # Additional shutdown logic can be added here
+# Startup/shutdown logic moved to lifespan context manager above
 
 # Add CORS middleware
 app.add_middleware(
