@@ -31,6 +31,34 @@ echo "==========================================="
 # Run the confirmation script
 bash /app/scripts/confirm_env.sh
 
-# Change to app directory and start the FastAPI application
+# Debug directory structure and start the FastAPI application
+echo "=== Python Import Debugging ==="
+echo "Current directory: $(pwd)"
+echo "Contents of /app:"
+ls -la /app/
+echo "Contents of /app/app:"
+ls -la /app/app/
+echo "Python version: $(python --version)"
+echo "PYTHONPATH: $PYTHONPATH"
+
+# Set proper Python path and working directory
 cd /app
+export PYTHONPATH="/app:$PYTHONPATH"
+
+echo "Testing import from /app directory..."
+python -c "
+import sys
+print('Python sys.path:', sys.path)
+try:
+    import app
+    print('✅ app module found')
+    import app.main
+    print('✅ app.main import successful')
+except Exception as e:
+    print(f'❌ Import failed: {e}')
+    import traceback
+    traceback.print_exc()
+"
+
+echo "=== Starting uvicorn ==="
 exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
