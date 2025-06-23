@@ -66,6 +66,7 @@ services:
       retries: 3
 
   jobspy-api:
+    image: jobspy-api:latest
     build: 
       context: https://github.com/gilby125/jobspy-api.git#main
     container_name: jobspy-docker-api
@@ -109,6 +110,7 @@ services:
       start_period: 10s
 
   celery-worker:
+    image: jobspy-api:latest
     build: 
       context: https://github.com/gilby125/jobspy-api.git#main
     container_name: jobspy-celery-worker
@@ -140,6 +142,7 @@ services:
       /bin/bash -c "cd /app && python -m celery -A app.celery_app worker --loglevel=info --concurrency=2"
 
   celery-beat:
+    image: jobspy-api:latest
     build: 
       context: https://github.com/gilby125/jobspy-api.git#main
     container_name: jobspy-celery-beat
