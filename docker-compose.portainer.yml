@@ -1,7 +1,6 @@
 services:
   postgres:
     image: timescale/timescaledb:latest-pg15
-    container_name: jobspy-postgres
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-jobspy}
       - POSTGRES_USER=${POSTGRES_USER:-jobspy}
@@ -9,7 +8,6 @@ services:
       - TIMESCALEDB_TELEMETRY=off
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./database/init:/docker-entrypoint-initdb.d
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jobspy} -d ${POSTGRES_DB:-jobspy}"]
@@ -19,7 +17,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: jobspy-redis
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -29,12 +26,9 @@ services:
       timeout: 10s
       retries: 3
 
-  jobspy-api:
+  api:
     build: 
-      context: .
-      no_cache: true
-    image: jobspy-docker-api:v2-debug
-    container_name: jobspy-docker-api
+      context: https://github.com/gilby125/jobspy-api.git#main
     depends_on:
       postgres:
         condition: service_healthy
@@ -43,12 +37,10 @@ services:
     ports:
       - "8787:8000"
     environment:
-      # Database Configuration
       - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy}:${POSTGRES_PASSWORD:-jobspy_password}@postgres:5432/${POSTGRES_DB:-jobspy}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      # Settings with defaults
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - ENABLE_API_KEY_AUTH=${ENABLE_API_KEY_AUTH:-false}
       - API_KEYS=${API_KEYS:-}
@@ -67,90 +59,26 @@ services:
       - ENABLE_SWAGGER_UI=${ENABLE_SWAGGER_UI:-true}
       - ENABLE_REDOC=${ENABLE_REDOC:-true}
     restart: unless-stopped
-    command: >
-      /bin/bash -c "
-      echo '=== DEBUGGING CONTAINER START $(date) ===';
-      echo 'Working directory:' $(pwd);
-      echo 'Contents of /:' && ls -la /;
-      echo 'Contents of /app:' && ls -la /app/ 2>/dev/null || echo 'No /app directory';
-      echo 'Contents of /app/app:' && ls -la /app/app/ 2>/dev/null || echo 'No /app/app directory';
-      cd /app;
-      export PYTHONPATH='/app:/app/app';
-      echo 'Python path:' $PYTHONPATH;
-      echo 'Testing Python import:';
-      python -c 'import sys; print(\"sys.path:\", sys.path); import app.main; print(\"✅ SUCCESS - app.main imported\")' || echo '❌ IMPORT FAILED';
-      echo 'Starting uvicorn...';
-      python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 120s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
 
-  celery-worker:
+  worker:
     build: 
-      context: .
-      no_cache: true
-    image: jobspy-docker-api:v2-debug
-    container_name: jobspy-celery-worker
+      context: https://github.com/gilby125/jobspy-api.git#main
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file:
-      - .env
     environment:
-      # Database Configuration
       - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy}:${POSTGRES_PASSWORD:-jobspy_password}@postgres:5432/${POSTGRES_DB:-jobspy}
       - REDIS_URL=redis://redis:6379/0
       - CELERY_BROKER_URL=redis://redis:6379/1
       - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      # Settings
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - ENABLE_API_KEY_AUTH=${ENABLE_API_KEY_AUTH:-false}
-      - API_KEYS=${API_KEYS:-}
-      - DEFAULT_SITE_NAMES=${DEFAULT_SITE_NAMES:-indeed,linkedin,zip_recruiter,glassdoor}
-      - DEFAULT_RESULTS_WANTED=${DEFAULT_RESULTS_WANTED:-20}
-      - DEFAULT_DISTANCE=${DEFAULT_DISTANCE:-50}
-      - DEFAULT_DESCRIPTION_FORMAT=${DEFAULT_DESCRIPTION_FORMAT:-markdown}
-      - DEFAULT_COUNTRY_INDEED=${DEFAULT_COUNTRY_INDEED:-USA}
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-    volumes:
-      - ./logs:/app/logs
-    restart: unless-stopped
-    command: >
-      /bin/bash -c "cd /app && python -m celery -A app.celery_app worker --loglevel=info --concurrency=2"
-
-  celery-beat:
-    build: 
-      context: .
-      no_cache: true
-    image: jobspy-docker-api:v2-debug
-    container_name: jobspy-celery-beat
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      # Database Configuration
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy}:${POSTGRES_PASSWORD:-jobspy_password}@postgres:5432/${POSTGRES_DB:-jobspy}
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      # Settings
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - ENVIRONMENT=${ENVIRONMENT:-production}
-    volumes:
-      - ./logs:/app/logs
     restart: unless-stopped
-    command: >
-      /bin/bash -c "cd /app && python -m celery -A app.celery_app beat --loglevel=info"
+    command: /bin/bash -c "cd /app && python -m celery -A app.celery_app worker --loglevel=info --concurrency=2"
 
 volumes:
   postgres_data:
   redis_data:
+EOF < /dev/null

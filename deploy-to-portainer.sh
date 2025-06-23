@@ -4,7 +4,7 @@ set -e
 # Configuration
 PORTAINER_URL="http://192.168.7.10:9000"
 PORTAINER_TOKEN="ptr_H9KdupIq3ZakdoGs5uueMzXf/TUwIe7oQXwmYCjCj2k="
-STACK_NAME="jobspy-api"
+STACK_NAME="jobspy-v2"
 
 echo "🚀 Deploying JobSpy API to Portainer..."
 
