@@ -68,22 +68,25 @@ COPY requirements.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install python-json-logger
 
-# Debug: Show what's available in build context
-RUN echo "=== BUILD CONTEXT DEBUG ===" && \
-    ls -la / && \
-    echo "=== ROOT CONTEXT ===" && \
-    ls -la . && \
-    echo "=== CHECKING FOR APP ===" && \
-    find . -name "app" -type d 2>/dev/null || echo "No app directory found in context"
-
 # Copy application code
 COPY . .
 
-# Debug: Show what was copied
-RUN echo "=== AFTER COPY DEBUG ===" && \
-    ls -la /app && \
-    echo "=== APP DIRECTORY ===" && \
-    ls -la /app/app 2>/dev/null || echo "app directory still missing"
+# Fallback: Clone from GitHub if app directory is empty
+RUN APP_FILES=$(find /app/app -name "*.py" 2>/dev/null | wc -l) && \
+    echo "Found $APP_FILES Python files in /app/app" && \
+    if [ "$APP_FILES" -eq 0 ]; then \
+        echo "App directory empty - cloning from GitHub as fallback" && \
+        apt-get update && apt-get install -y git && \
+        rm -rf /tmp/jobspy-api && \
+        git clone https://github.com/gilby125/jobspy-api.git /tmp/jobspy-api && \
+        rm -rf /app/app && \
+        cp -r /tmp/jobspy-api/app /app/ && \
+        rm -rf /tmp/jobspy-api && \
+        apt-get remove -y git && apt-get autoremove -y; \
+    fi
+
+# Final verification
+RUN ls -la /app/app && echo "Contents:" && ls -la /app/app/
 
 # Create logs directory
 RUN mkdir -p logs
