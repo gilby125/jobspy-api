@@ -38,7 +38,6 @@ cat > docker-compose.deploy.yml << 'EOF'
 services:
   postgres:
     image: timescale/timescaledb:latest-pg15
-    container_name: jobspy-postgres
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-jobspy}
       - POSTGRES_USER=${POSTGRES_USER:-jobspy}
@@ -55,7 +54,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: jobspy-redis
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -66,10 +64,8 @@ services:
       retries: 3
 
   jobspy-api:
-    image: jobspy-api:latest
     build: 
       context: https://github.com/gilby125/jobspy-api.git#main
-    container_name: jobspy-docker-api
     depends_on:
       postgres:
         condition: service_healthy
@@ -110,10 +106,8 @@ services:
       start_period: 10s
 
   celery-worker:
-    image: jobspy-api:latest
     build: 
       context: https://github.com/gilby125/jobspy-api.git#main
-    container_name: jobspy-celery-worker
     depends_on:
       postgres:
         condition: service_healthy
@@ -142,10 +136,8 @@ services:
       /bin/bash -c "cd /app && python -m celery -A app.celery_app worker --loglevel=info --concurrency=2"
 
   celery-beat:
-    image: jobspy-api:latest
     build: 
       context: https://github.com/gilby125/jobspy-api.git#main
-    container_name: jobspy-celery-beat
     depends_on:
       postgres:
         condition: service_healthy
