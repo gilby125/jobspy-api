@@ -53,13 +53,11 @@ docker-compose.override.yml
 *.tmp
 *.temp
 
-# Logs
-logs
+# Logs (exclude log files but not the logs directory structure)
 *.log
 
-# Documentation
+# Documentation (exclude specific files, not all .md)
 README.md
-*.md
 
 # Test outputs
 .pytest_cache
