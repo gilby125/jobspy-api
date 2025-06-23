@@ -68,11 +68,22 @@ COPY requirements.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir -r requirements.txt && \
     pip install python-json-logger
 
+# Debug: Show what's available in build context
+RUN echo "=== BUILD CONTEXT DEBUG ===" && \
+    ls -la / && \
+    echo "=== ROOT CONTEXT ===" && \
+    ls -la . && \
+    echo "=== CHECKING FOR APP ===" && \
+    find . -name "app" -type d 2>/dev/null || echo "No app directory found in context"
+
 # Copy application code
 COPY . .
-# Explicitly ensure app directory exists and has content
-RUN ls -la /app && ls -la /app/app || echo "app directory missing - copying explicitly"
-COPY app/ /app/app/
+
+# Debug: Show what was copied
+RUN echo "=== AFTER COPY DEBUG ===" && \
+    ls -la /app && \
+    echo "=== APP DIRECTORY ===" && \
+    ls -la /app/app 2>/dev/null || echo "app directory still missing"
 
 # Create logs directory
 RUN mkdir -p logs
