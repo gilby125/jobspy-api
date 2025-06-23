@@ -70,6 +70,9 @@ RUN pip install --no-cache-dir -r requirements.txt && \
 
 # Copy application code
 COPY . .
+# Explicitly ensure app directory exists and has content
+RUN ls -la /app && ls -la /app/app || echo "app directory missing - copying explicitly"
+COPY app/ /app/app/
 
 # Create logs directory
 RUN mkdir -p logs
