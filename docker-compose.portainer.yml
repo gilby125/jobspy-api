@@ -61,12 +61,6 @@ services:
       - ENABLE_SWAGGER_UI=${ENABLE_SWAGGER_UI:-true}
       - ENABLE_REDOC=${ENABLE_REDOC:-true}
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s  # Give API time to build and start
 
   worker:
     build: 
@@ -76,8 +70,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      api:
-        condition: service_healthy  # Wait for API to be ready too
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy}:${POSTGRES_PASSWORD:-jobspy_password}@postgres:5432/${POSTGRES_DB:-jobspy}
       - REDIS_URL=redis://redis:6379/0
@@ -87,12 +79,6 @@ services:
       - ENVIRONMENT=${ENVIRONMENT:-production}
     restart: unless-stopped
     command: /bin/bash -c "sleep 30 && cd /app && python -m celery -A app.celery_app worker --loglevel=info --concurrency=2"
-    healthcheck:
-      test: ["CMD", "python", "-c", "import redis; r=redis.Redis(host='redis'); r.ping()"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 90s
 
   beat:
     build: 
@@ -101,8 +87,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      api:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy}:${POSTGRES_PASSWORD:-jobspy_password}@postgres:5432/${POSTGRES_DB:-jobspy}
