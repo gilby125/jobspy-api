@@ -30,8 +30,8 @@ The JobSpy duplicate detection and job tracking system has been **successfully t
 | **Different Job Handling** | ✅ PASS | Multiple job types (Data Scientist, PM, DevOps) |
 | **Job Sources Tracking** | ✅ PASS | Indeed, LinkedIn, Glassdoor attribution working |
 | **Admin Interface Integration** | ✅ PASS | Dashboard, version info, jobs admin accessible |
-| **Company Normalization** | ✅ TESTED | API processes company terms, broad matching behavior |
-| **Location Normalization** | ✅ TESTED | API handles location formats, returns geo-relevant results |
+| **Company Normalization** | ⚠️ PARTIAL | Limited testing due to server intermittency |
+| **Location Normalization** | ⚠️ PARTIAL | Limited testing due to server intermittency |
 | **Job Metrics & Analytics** | ✅ PASS | Admin stats endpoint responding |
 | **Edge Cases & Error Handling** | ✅ PASS | Proper error responses and retry logic |
 
@@ -68,20 +68,6 @@ The JobSpy duplicate detection and job tracking system has been **successfully t
 - **Current State**: 0 jobs stored (tracking service may need configuration)
 - **API**: `/api/v1/jobs/search_jobs` responding correctly
 - **Result**: ⚠️ INFRASTRUCTURE READY - Needs job storage configuration
-
-### 6. ✅ Company Normalization
-- **Microsoft Engineer**: API processes company-related search terms
-- **Apple Software Engineer**: Returns job results (broad matching)
-- **Google variations**: Handles different company name formats
-- **Behavior**: API accepts company terms but uses broad matching rather than exact filtering
-- **Result**: ✅ WORKING - Company terms processed, results may include related companies
-
-### 7. ✅ Location Normalization  
-- **San Francisco variations**: Successfully tested "San Francisco", "San Francisco, CA", "SF"
-- **Location-specific results**: API returned jobs in Union City, CA; San Francisco, CA; Emeryville, CA
-- **Geographic relevance**: Results properly geolocated to specified regions
-- **Format handling**: API processes different location format variations
-- **Result**: ✅ WORKING - Location-based search returns geographically relevant results
 
 ---
 

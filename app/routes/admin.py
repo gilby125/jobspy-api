@@ -13,8 +13,9 @@ from app.models.admin_models import (
     ScheduledSearchRequest, ScheduledSearchResponse, BulkSearchRequest, SearchStatus
 )
 from app.services.admin_service import AdminService
-from app.services.celery_scheduler import get_celery_scheduler
+
 from app.services.job_service import JobService
+from app.services.celery_scheduler import get_celery_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -1015,8 +1016,10 @@ async def schedule_bulk_searches(
             # Handle execution time
             if search_request.schedule_time:
                 execution_time = search_request.schedule_time.replace(tzinfo=None) if search_request.schedule_time.tzinfo else search_request.schedule_time
+                is_immediate = execution_time <= datetime.now()
             else:
                 execution_time = datetime.now()
+                is_immediate = True
             
             # Schedule the search
             search_id = await scheduler.schedule_search(
@@ -2918,12 +2921,6 @@ async def admin_jobs():
             .empty-state { text-align: center; padding: 60px 20px; color: #7f8c8d; }
             .empty-state h3 { margin-bottom: 10px; }
             .export-controls { display: flex; gap: 10px; margin-bottom: 20px; }
-            .sortable { cursor: pointer; user-select: none; position: relative; }
-            .sortable:hover { background: #e9ecef; }
-            .sort-indicator { margin-left: 5px; font-size: 0.8em; color: #6c757d; }
-            .sort-indicator::after { content: '↕️'; }
-            .sort-indicator.asc::after { content: '↑'; color: #007bff; }
-            .sort-indicator.desc::after { content: '↓'; color: #007bff; }
         </style>
     </head>
     <body>
@@ -3035,24 +3032,6 @@ async def admin_jobs():
                             </select>
                         </div>
                         <div class="filter-group">
-                            <label>Sort by:</label>
-                            <select id="sort-by">
-                                <option value="date_scraped">Date Scraped</option>
-                                <option value="date_posted">Date Posted</option>
-                                <option value="title">Job Title</option>
-                                <option value="company_name">Company</option>
-                                <option value="salary_max">Max Salary</option>
-                                <option value="salary_min">Min Salary</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Sort order:</label>
-                            <select id="sort-order">
-                                <option value="desc">Newest First</option>
-                                <option value="asc">Oldest First</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
                             <label>Results per page:</label>
                             <select id="page-size">
                                 <option value="25">25</option>
@@ -3084,32 +3063,19 @@ async def admin_jobs():
                     <table id="jobs-table">
                         <thead>
                             <tr>
-                                <th class="sortable" onclick="sortTable('title')" data-sort="title">
-                                    Title <span class="sort-indicator" id="sort-title"></span>
-                                </th>
-                                <th class="sortable" onclick="sortTable('company')" data-sort="company">
-                                    Company <span class="sort-indicator" id="sort-company"></span>
-                                </th>
-                                <th class="sortable" onclick="sortTable('location')" data-sort="location">
-                                    Location <span class="sort-indicator" id="sort-location"></span>
-                                </th>
-                                <th class="sortable" onclick="sortTable('salary_max')" data-sort="salary_max">
-                                    Salary <span class="sort-indicator" id="sort-salary_max"></span>
-                                </th>
+                                <th>Title</th>
+                                <th>Company</th>
+                                <th>Location</th>
+                                <th>Salary</th>
                                 <th>Type</th>
                                 <th>Remote</th>
                                 <th>Platform</th>
-                                <th class="sortable" onclick="sortTable('date_posted')" data-sort="date_posted">
-                                    Posted <span class="sort-indicator" id="sort-date_posted"></span>
-                                </th>
-                                <th class="sortable" onclick="sortTable('first_seen_date')" data-sort="first_seen_date">
-                                    Date Scraped <span class="sort-indicator" id="sort-first_seen_date"></span>
-                                </th>
+                                <th>Posted</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="10" style="text-align: center; color: #666;">Loading jobs...</td></tr>
+                            <tr><td colspan="9" style="text-align: center; color: #666;">Loading jobs...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -3210,11 +3176,8 @@ async def admin_jobs():
             function renderJobsTable(jobs) {
                 const tbody = document.querySelector('#jobs-table tbody');
                 
-                // Store current jobs data for sorting
-                currentJobsData = jobs;
-                
                 if (jobs.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><h3>No jobs found</h3><p>Try adjusting your filters or check back after running some searches.</p></td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><h3>No jobs found</h3><p>Try adjusting your filters or check back after running some searches.</p></td></tr>';
                     return;
                 }
 
@@ -3228,7 +3191,6 @@ async def admin_jobs():
                         <td>${job.is_remote ? '<span class="remote-badge">Remote</span>' : 'On-site'}</td>
                         <td><span class="platform-badge platform-${job.source_platform}">${job.source_platform}</span></td>
                         <td title="${job.date_posted}">${formatDate(job.date_posted)}</td>
-                        <td title="${job.first_seen_date}">${formatDate(job.first_seen_date)}</td>
                         <td>
                             <button class="btn" onclick="event.stopPropagation(); window.open('${job.job_url}', '_blank')">View</button>
                         </td>
@@ -3240,7 +3202,7 @@ async def admin_jobs():
                 const tbody = document.querySelector('#jobs-table tbody');
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="10" class="empty-state">
+                        <td colspan="9" class="empty-state">
                             <h3>🔍 No Jobs in Database Yet</h3>
                             <p>Run some job searches from the <a href="/admin/searches">Searches</a> page to populate the database.</p>
                         </td>
@@ -3274,77 +3236,6 @@ async def admin_jobs():
                 }
                 
                 pagination.innerHTML = buttons.join('');
-            }
-
-            // Global variables for sorting
-            let currentSort = { column: null, direction: 'asc' };
-            let currentJobsData = [];
-
-            function sortTable(column) {
-                // Toggle sort direction if clicking the same column
-                if (currentSort.column === column) {
-                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    currentSort.column = column;
-                    currentSort.direction = 'asc';
-                }
-
-                // Update sort indicators
-                document.querySelectorAll('.sort-indicator').forEach(indicator => {
-                    indicator.textContent = '';
-                });
-                
-                const indicator = document.getElementById(`sort-${column}`);
-                if (indicator) {
-                    indicator.textContent = currentSort.direction === 'asc' ? ' ↑' : ' ↓';
-                }
-
-                // Sort the current jobs data
-                if (currentJobsData.length > 0) {
-                    const sortedJobs = [...currentJobsData].sort((a, b) => {
-                        // Map column names to actual job field names
-                        let fieldName = column;
-                        if (column === 'company') fieldName = 'company_name';
-                        
-                        let valueA = a[fieldName];
-                        let valueB = b[fieldName];
-
-                        // Handle null/undefined values
-                        if (valueA == null) valueA = '';
-                        if (valueB == null) valueB = '';
-
-                        // Special handling for different data types
-                        switch (column) {
-                            case 'salary_max':
-                                valueA = parseFloat(valueA) || 0;
-                                valueB = parseFloat(valueB) || 0;
-                                break;
-                            case 'date_posted':
-                            case 'first_seen_date':
-                                valueA = new Date(valueA);
-                                valueB = new Date(valueB);
-                                break;
-                            case 'title':
-                            case 'company':
-                            case 'location':
-                            default:
-                                valueA = String(valueA).toLowerCase();
-                                valueB = String(valueB).toLowerCase();
-                                break;
-                        }
-
-                        if (valueA < valueB) {
-                            return currentSort.direction === 'asc' ? -1 : 1;
-                        }
-                        if (valueA > valueB) {
-                            return currentSort.direction === 'asc' ? 1 : -1;
-                        }
-                        return 0;
-                    });
-
-                    // Re-render the table with sorted data
-                    renderJobsTable(sortedJobs);
-                }
             }
 
             function formatSalary(min, max, currency = 'USD') {
@@ -3403,12 +3294,6 @@ async def admin_jobs():
                 const dateFilter = document.getElementById('date-filter').value;
                 if (dateFilter) currentFilters.days_ago = dateFilter;
                 
-                const sortBy = document.getElementById('sort-by').value;
-                if (sortBy) currentFilters.sort_by = sortBy;
-                
-                const sortOrder = document.getElementById('sort-order').value;
-                if (sortOrder) currentFilters.sort_order = sortOrder;
-                
                 loadJobs(1); // Reset to page 1 when applying filters
             }
 
@@ -3422,8 +3307,6 @@ async def admin_jobs():
                 document.getElementById('salary-min').value = '';
                 document.getElementById('salary-max').value = '';
                 document.getElementById('date-filter').value = '';
-                document.getElementById('sort-by').value = 'date_scraped';
-                document.getElementById('sort-order').value = 'desc';
                 
                 currentFilters = {};
                 loadJobs(1);
@@ -3490,15 +3373,6 @@ async def admin_jobs():
             // Load data on page load
             loadJobsStats();
             loadJobs();
-            
-            // Add event listeners for sort controls
-            document.getElementById('sort-by').addEventListener('change', function() {
-                applyFilters(); // Apply all filters including new sort settings
-            });
-            
-            document.getElementById('sort-order').addEventListener('change', function() {
-                applyFilters(); // Apply all filters including new sort settings
-            });
             
             // Auto-refresh every 2 minutes
             setInterval(() => {
@@ -4284,35 +4158,11 @@ async def get_jobs(
     salary_min: Optional[int] = Query(None),
     salary_max: Optional[int] = Query(None),
     days_ago: Optional[int] = Query(None),
-    sort_by: str = Query("date_scraped", description="Sort field: date_scraped, date_posted, title, company_name, salary_min, salary_max"),
-    sort_order: str = Query("desc", description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
     admin_user: dict = Depends(get_admin_user)
 ):
     """Get paginated jobs with filtering"""
     try:
-        # Validate sort parameters
-        valid_sort_fields = {
-            'date_scraped': 'jp.date_scraped',
-            'date_posted': 'jp.date_posted',
-            'title': 'jp.title',
-            'company_name': 'c.name',
-            'salary_min': 'jp.salary_min',
-            'salary_max': 'jp.salary_max'
-        }
-        
-        if sort_by not in valid_sort_fields:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid sort_by field. Valid options: {', '.join(valid_sort_fields.keys())}"
-            )
-        
-        if sort_order not in ['asc', 'desc']:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid sort_order. Valid options: asc, desc"
-            )
-        
         offset = (page - 1) * limit
         where_conditions = ["jp.is_active = true"]
         params = {"limit": limit, "offset": offset}
@@ -4383,7 +4233,7 @@ async def get_jobs(
             LEFT JOIN companies c ON jp.company_id = c.id
             LEFT JOIN locations l ON jp.location_id = l.id
             WHERE {where_clause}
-            ORDER BY {valid_sort_fields[sort_by]} {sort_order.upper()}
+            ORDER BY jp.date_scraped DESC
             LIMIT :limit OFFSET :offset
         """
         
