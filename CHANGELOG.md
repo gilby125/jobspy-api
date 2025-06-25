@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed CSV export functionality when using `format=csv` parameter
 - Fixed `DEFAULT_COUNTRY_INDEED` environment variable not being used as fallback when parameter is not provided
 - Fixed `site_name=all` being rejected as an invalid option
-- Fixed `ENABLE_API_KEY_AUTH` defaulting to disabled instead of enabled when not specified
+- Fixed `ENABLE_API_KEY_AUTH` defaulting to disabled instead of enabled when not specified.
 
 
 
