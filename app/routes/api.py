@@ -484,6 +484,18 @@ async def search_jobs(
             }
         )
 
+@router.post("/debug/create-tables")
+async def create_database_tables():
+    """Debug endpoint to create database tables."""
+    try:
+        from app.db.database import create_tables, init_database
+        init_database()
+        create_tables()
+        return {"status": "success", "message": "Database tables created successfully"}
+    except Exception as e:
+        logger.error(f"Error creating tables: {e}")
+        return {"status": "error", "message": f"Failed to create tables: {str(e)}"}
+
 @router.post("/search_jobs", response_model=Union[JobResponse, PaginatedJobResponse], dependencies=[Depends(get_api_key)])
 async def search_jobs_post(
     params: JobSearchParams,
@@ -576,3 +588,15 @@ async def search_jobs_post(
                 "suggestion": suggestion
             }
         )
+
+@router.post("/debug/create-tables")
+async def create_database_tables():
+    """Debug endpoint to create database tables."""
+    try:
+        from app.db.database import create_tables, init_database
+        init_database()
+        create_tables()
+        return {"status": "success", "message": "Database tables created successfully"}
+    except Exception as e:
+        logger.error(f"Error creating tables: {e}")
+        return {"status": "error", "message": f"Failed to create tables: {str(e)}"}
