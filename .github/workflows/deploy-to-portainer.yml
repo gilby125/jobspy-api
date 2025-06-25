@@ -1,0 +1,52 @@
+name: Deploy to Portainer
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Trigger Portainer Webhook
+      id: deploy
+      run: |
+        echo "Triggering Portainer deployment..."
+        response=$(curl -s -w "%{http_code}" -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}")
+        http_code="${response: -3}"
+        
+        if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 204 ]; then
+          echo "✅ Deployment triggered successfully (HTTP $http_code)"
+          echo "deployment_status=success" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Deployment failed (HTTP $http_code)"
+          echo "deployment_status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+    - name: Wait for deployment
+      if: steps.deploy.outputs.deployment_status == 'success'
+      run: |
+        echo "⏳ Waiting for deployment to complete..."
+        sleep 45
+        
+    - name: Verify deployment
+      if: steps.deploy.outputs.deployment_status == 'success'
+      run: |
+        echo "🔍 Verifying deployment..."
+        # Optional: Add health check here
+        # curl -f http://your-app-url/health || exit 1
+        echo "✅ Deployment completed successfully"
+        
+    - name: Deployment Summary
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: ${{ steps.deploy.outputs.deployment_status }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Triggered by**: ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
