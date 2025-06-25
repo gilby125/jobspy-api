@@ -1,16 +1,15 @@
-from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, Query, BackgroundTasks
 from fastapi.responses import StreamingResponse
 from typing import Optional, List, Dict, Any
-import json
 import csv
 import io
-from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import and_, or_, func
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_, func
 
 from app.api.deps import get_api_key
 from app.db.database import get_db
-from app.pydantic_models import JobSearchParams, JobResponse, PaginatedJobResponse
-from app.models.tracking_models import JobPosting, Company, Location, JobCategory, ScrapingRun
+from app.pydantic_models import PaginatedJobResponse
+from app.models.existing_models import ExistingJobPosting, ExistingCompany, ExistingLocation, ExistingJobCategory
 from app.services.job_tracking_service import job_tracking_service
 from app.cache import cache
 from app.core.config import settings
@@ -66,78 +65,94 @@ async def search_jobs(
             return PaginatedJobResponse(**cached_result, cached=True)
     
     # Build query with eager loading to prevent N+1 queries
-    query = db.query(JobPosting).join(Company).outerjoin(Location).outerjoin(JobCategory).options(
-        joinedload(JobPosting.company),
-        joinedload(JobPosting.location),
-        joinedload(JobPosting.job_category),
-        selectinload(JobPosting.job_sources),
-        joinedload(JobPosting.job_metrics)
+    query = db.query(ExistingJobPosting).join(ExistingCompany).outerjoin(ExistingLocation).outerjoin(ExistingJobCategory).options(
+        joinedload(ExistingJobPosting.company),
+        joinedload(ExistingJobPosting.location),
+        joinedload(ExistingJobPosting.job_category),
+        joinedload(ExistingJobPosting.job_metrics)
     )
     
     # Apply filters
     if search_term:
         search_filter = or_(
-            func.lower(JobPosting.title).contains(search_term.lower()),
-            func.lower(JobPosting.description).contains(search_term.lower()),
-            func.lower(Company.name).contains(search_term.lower())
+            func.lower(ExistingJobPosting.title).contains(search_term.lower()),
+            func.lower(ExistingJobPosting.description).contains(search_term.lower()),
+            func.lower(ExistingCompany.name).contains(search_term.lower())
         )
         query = query.filter(search_filter)
     
     if location:
         location_filter = or_(
-            func.lower(Location.city).contains(location.lower()),
-            func.lower(Location.state).contains(location.lower()),
-            func.lower(Location.country).contains(location.lower())
+            func.lower(ExistingLocation.city).contains(location.lower()),
+            func.lower(ExistingLocation.state).contains(location.lower()),
+            func.lower(ExistingLocation.country).contains(location.lower())
         )
         query = query.filter(location_filter)
     
     if company:
-        query = query.filter(func.lower(Company.name).contains(company.lower()))
+        query = query.filter(func.lower(ExistingCompany.name).contains(company.lower()))
     
     if job_type:
-        query = query.filter(func.lower(JobPosting.job_type) == job_type.lower())
+        query = query.filter(func.lower(ExistingJobPosting.job_type) == job_type.lower())
     
     if experience_level:
-        query = query.filter(func.lower(JobPosting.experience_level) == experience_level.lower())
+        query = query.filter(func.lower(ExistingJobPosting.experience_level) == experience_level.lower())
     
     if is_remote is not None:
-        query = query.filter(JobPosting.is_remote == is_remote)
+        query = query.filter(ExistingJobPosting.is_remote == is_remote)
     
     if salary_min:
         query = query.filter(
             or_(
-                JobPosting.salary_min >= salary_min,
-                JobPosting.salary_max >= salary_min
+                ExistingJobPosting.salary_min >= salary_min,
+                ExistingJobPosting.salary_max >= salary_min
             )
         )
     
     if salary_max:
         query = query.filter(
             or_(
-                JobPosting.salary_min <= salary_max,
-                JobPosting.salary_max <= salary_max
+                ExistingJobPosting.salary_min <= salary_max,
+                ExistingJobPosting.salary_max <= salary_max
             )
         )
     
-    # Date filter
+    # Date filter - use date_scraped as the first seen date
     if days_old:
         from datetime import datetime, timedelta
         cutoff_date = datetime.utcnow() - timedelta(days=days_old)
-        query = query.filter(JobPosting.first_seen_at >= cutoff_date)
+        query = query.filter(ExistingJobPosting.date_scraped >= cutoff_date)
     
     # Only active jobs
-    query = query.filter(JobPosting.status == 'active')
+    query = query.filter(ExistingJobPosting.is_active)
     
     # Get total count
     total_count = query.count()
     
     # Apply pagination
     offset = (page - 1) * page_size
-    jobs = query.order_by(JobPosting.first_seen_at.desc()).offset(offset).limit(page_size).all()
+    jobs = query.order_by(ExistingJobPosting.date_scraped.desc()).offset(offset).limit(page_size).all()
     
     # Convert to response format
     jobs_data = []
     for job in jobs:
+        # Calculate repost count dynamically by finding similar jobs 
+        # (same title and company but different external_id)
+        repost_count = 0
+        if job.title and job.company:
+            repost_count = db.query(ExistingJobPosting).filter(
+                ExistingJobPosting.title == job.title,
+                ExistingJobPosting.company_id == job.company_id,
+                ExistingJobPosting.external_id != job.external_id,
+                ExistingJobPosting.is_active
+            ).count()
+        
+        # Calculate days active
+        if job.date_scraped and job.last_seen:
+            days_active = (job.last_seen.date() - job.date_scraped.date()).days
+        else:
+            days_active = 0
+        
         job_dict = {
             'id': job.id,
             'title': job.title,
@@ -153,24 +168,24 @@ async def search_jobs(
             'max_amount': float(job.salary_max) if job.salary_max else None,
             'currency': job.salary_currency,
             'interval': job.salary_interval,
-            'date_posted': job.first_seen_at.isoformat(),
-            'job_hash': job.job_hash,
-            'status': job.status,
+            'date_posted': job.date_posted.isoformat() if job.date_posted else None,  # Original posting date
+            'first_seen_date': job.date_scraped.isoformat(),  # When we first discovered it
+            'external_id': job.external_id,
+            'source_platform': job.source_platform,
+            'job_url': job.job_url,
+            'application_url': job.application_url,
+            'easy_apply': job.easy_apply,
+            'status': 'active' if job.is_active else 'inactive',
             'job_category': job.job_category.name if job.job_category else None,
-            'sources': [
-                {
-                    'site': source.source_site,
-                    'url': source.job_url,
-                    'external_id': source.external_job_id,
-                    'apply_url': source.apply_url,
-                    'easy_apply': source.easy_apply
-                }
-                for source in job.job_sources
-            ],
+            'skills': job.skills,
+            'metadata': job.job_metadata,
             'metrics': {
-                'total_seen_count': job.job_metrics.total_seen_count if job.job_metrics else 1,
-                'sites_posted_count': job.job_metrics.sites_posted_count if job.job_metrics else 1,
-                'days_active': job.job_metrics.days_active if job.job_metrics else 0
+                'view_count': job.job_metrics.view_count if job.job_metrics else 0,
+                'application_count': job.job_metrics.application_count if job.job_metrics else 0,
+                'save_count': job.job_metrics.save_count if job.job_metrics else 0,
+                'search_appearance_count': job.job_metrics.search_appearance_count if job.job_metrics else 0,
+                'days_active': days_active,
+                'repost_count': repost_count
             }
         }
         jobs_data.append(job_dict)
@@ -235,16 +250,16 @@ async def get_companies(
     db: Session = Depends(get_db)
 ):
     """Get list of companies with job postings."""
-    query = db.query(Company).join(JobPosting)
+    query = db.query(ExistingCompany).join(ExistingJobPosting)
     
     if search:
-        query = query.filter(func.lower(Company.name).contains(search.lower()))
+        query = query.filter(func.lower(ExistingCompany.name).contains(search.lower()))
     
     if industry:
-        query = query.filter(func.lower(Company.industry).contains(industry.lower()))
+        query = query.filter(func.lower(ExistingCompany.industry).contains(industry.lower()))
     
-    companies = query.group_by(Company.id).order_by(
-        func.count(JobPosting.id).desc()
+    companies = query.group_by(ExistingCompany.id).order_by(
+        func.count(ExistingJobPosting.id).desc()
     ).limit(limit).all()
     
     return [
@@ -271,20 +286,20 @@ async def get_locations(
     db: Session = Depends(get_db)
 ):
     """Get list of job locations."""
-    query = db.query(Location).join(JobPosting)
+    query = db.query(ExistingLocation).join(ExistingJobPosting)
     
     if search:
         search_filter = or_(
-            func.lower(Location.city).contains(search.lower()),
-            func.lower(Location.state).contains(search.lower())
+            func.lower(ExistingLocation.city).contains(search.lower()),
+            func.lower(ExistingLocation.state).contains(search.lower())
         )
         query = query.filter(search_filter)
     
     if country:
-        query = query.filter(func.lower(Location.country) == country.lower())
+        query = query.filter(func.lower(ExistingLocation.country) == country.lower())
     
-    locations = query.group_by(Location.id).order_by(
-        func.count(JobPosting.id).desc()
+    locations = query.group_by(ExistingLocation.id).order_by(
+        func.count(ExistingJobPosting.id).desc()
     ).limit(limit).all()
     
     return [
@@ -293,7 +308,10 @@ async def get_locations(
             'city': location.city,
             'state': location.state,
             'country': location.country,
-            'region': location.region,
+            'latitude': float(location.latitude) if location.latitude else None,
+            'longitude': float(location.longitude) if location.longitude else None,
+            'metro_area': location.metro_area,
+            'timezone': location.timezone,
             'job_count': len(location.job_postings)
         }
         for location in locations
@@ -367,7 +385,7 @@ def _create_csv_response(jobs_data: List[Dict[str, Any]]) -> StreamingResponse:
     fieldnames = [
         'title', 'company', 'location', 'job_type', 'experience_level',
         'is_remote', 'min_amount', 'max_amount', 'currency', 'interval',
-        'date_posted', 'job_category', 'description'
+        'date_posted', 'first_seen_date', 'job_category', 'repost_count', 'description'
     ]
     
     writer = csv.DictWriter(output, fieldnames=fieldnames)
@@ -387,7 +405,9 @@ def _create_csv_response(jobs_data: List[Dict[str, Any]]) -> StreamingResponse:
             'currency': job['currency'],
             'interval': job['interval'],
             'date_posted': job['date_posted'],
+            'first_seen_date': job['first_seen_date'],
             'job_category': job['job_category'],
+            'repost_count': job['metrics']['repost_count'],
             'description': job['description'][:500] if job['description'] else ""  # Truncate for CSV
         }
         writer.writerow(csv_row)
