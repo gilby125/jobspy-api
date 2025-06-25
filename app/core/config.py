@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: Optional[str] = None
     CELERY_RESULT_BACKEND: Optional[str] = None
     
+    # Celery Configuration
+    CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP: bool = True
+    CELERY_BROKER_CONNECTION_RETRY: bool = True
+    
     # API Security
     API_KEYS: str = ""
     ENABLE_API_KEY_AUTH: bool = True

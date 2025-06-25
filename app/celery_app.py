@@ -28,6 +28,9 @@ celery_app.conf.update(
     task_compression="gzip",
     result_compression="gzip",
     result_expires=3600,  # 1 hour
+    # Fix Celery 6.0+ deprecation warnings
+    broker_connection_retry_on_startup=getattr(settings, 'CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP', True),
+    broker_connection_retry=getattr(settings, 'CELERY_BROKER_CONNECTION_RETRY', True),
     beat_schedule={
         # Add any periodic tasks here
     },
