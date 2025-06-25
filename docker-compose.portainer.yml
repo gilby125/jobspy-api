@@ -86,23 +86,6 @@ services:
     restart: unless-stopped
     command: /bin/bash -c "sleep 30 && cd /app && python -m celery -A app.celery_app worker --loglevel=info --concurrency=2"
 
-  beat:
-    build: 
-      context: https://github.com/gilby125/jobspy-api.git#main
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy}:${POSTGRES_PASSWORD:-jobspy_password}@postgres:5432/${POSTGRES_DB:-jobspy}
-      - REDIS_URL=redis://redis:6379/0
-      - CELERY_BROKER_URL=redis://redis:6379/1
-      - CELERY_RESULT_BACKEND=redis://redis:6379/2
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
-      - ENVIRONMENT=${ENVIRONMENT:-production}
-    restart: unless-stopped
-    command: /bin/bash -c "sleep 45 && cd /app && python -m celery -A app.celery_app beat --loglevel=info"
 
 volumes:
   postgres_data:
