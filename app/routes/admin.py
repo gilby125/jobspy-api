@@ -585,16 +585,15 @@ async def admin_dashboard():
                             <div class="form-group">
                                 <label>Schedule Type:</label>
                                 <select class="bulk-schedule-type" onchange="toggleBulkScheduleOptions(this)">
-                                    <option value="immediate">Run Immediately</option>
                                     <option value="scheduled">Schedule for Later</option>
                                     <option value="recurring">Recurring</option>
                                 </select>
                             </div>
                         </div>
-                        <div class="form-row bulk-schedule-options" style="display: none;">
+                        <div class="form-row bulk-schedule-options">
                             <div class="form-group">
                                 <label>Schedule Time:</label>
-                                <input type="datetime-local" class="bulk-schedule-time">
+                                <input type="datetime-local" class="bulk-schedule-time" required>
                             </div>
                             <div class="form-group bulk-recurring-options" style="display: none;">
                                 <label>Recurring Interval:</label>
@@ -631,11 +630,8 @@ async def admin_dashboard():
                 const recurringOptions = searchItem.querySelector('.bulk-recurring-options');
                 const scheduleType = selectElement.value;
                 
-                if (scheduleType === 'scheduled' || scheduleType === 'recurring') {
-                    scheduleOptions.style.display = 'block';
-                } else {
-                    scheduleOptions.style.display = 'none';
-                }
+                // Always show schedule options since we only have scheduled/recurring
+                scheduleOptions.style.display = 'block';
                 
                 if (scheduleType === 'recurring') {
                     recurringOptions.style.display = 'block';
@@ -781,7 +777,7 @@ async def schedule_search(
     if not request.schedule_time and not request.recurring:
         raise HTTPException(
             status_code=400, 
-            detail="Scheduler requires either a future schedule_time or recurring=true. For immediate searches, use the regular job search API."
+            detail="Scheduler requires either a future schedule_time or recurring=true. Use /api/v1/search_jobs for immediate searches."
         )
     
     # Handle timezone-aware vs naive datetime comparison and get execution time
@@ -800,7 +796,7 @@ async def schedule_search(
             if is_immediate and not request.recurring:
                 raise HTTPException(
                     status_code=400,
-                    detail="Cannot schedule searches in the past. For immediate searches, use the regular job search API."
+                    detail="Cannot schedule searches in the past. Use /api/v1/search_jobs for immediate searches."
                 )
         else:
             # Both are naive
@@ -811,7 +807,7 @@ async def schedule_search(
             if is_immediate and not request.recurring:
                 raise HTTPException(
                     status_code=400,
-                    detail="Cannot schedule searches in the past. For immediate searches, use the regular job search API."
+                    detail="Cannot schedule searches in the past. Use /api/v1/search_jobs for immediate searches."
                 )
     else:
         # For recurring searches without specific schedule_time, start immediately
@@ -1040,7 +1036,24 @@ async def admin_searches_page():
             </div>
 
             <div class="card">
-                <h2>➕ Schedule New Search</h2>
+                <h2>⚡ Quick Actions</h2>
+                <p>For immediate job searches, use the direct search API:</p>
+                <div style="margin: 20px 0;">
+                    <button onclick="openQuickSearch()" class="btn" style="background: #27ae60; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; margin-right: 10px;">
+                        🔍 Quick Search (Immediate)
+                    </button>
+                    <button onclick="openApiDocs()" class="btn" style="background: #3498db; color: white; padding: 12px 24px; border: none; border-radius: 6px; font-size: 16px; cursor: pointer;">
+                        📚 API Documentation
+                    </button>
+                </div>
+                <small style="color: #666;">
+                    Quick Search opens the direct API interface for immediate job searches. 
+                    Use the scheduler below for future or recurring searches.
+                </small>
+            </div>
+
+            <div class="card">
+                <h2>⏰ Schedule Future Search</h2>
                 <form id="schedule-search-form" class="search-form">
                     <div class="form-row">
                         <div class="form-group">
@@ -1086,14 +1099,13 @@ async def admin_searches_page():
                         <div class="form-group">
                             <label for="schedule-type">Schedule Type:</label>
                             <select id="schedule-type" onchange="toggleScheduleOptions()">
-                                <option value="immediate">Run Immediately</option>
                                 <option value="scheduled">Schedule for Later</option>
                                 <option value="recurring">Recurring</option>
                             </select>
                         </div>
-                        <div class="form-group" id="schedule-time-group" style="display: none;">
+                        <div class="form-group" id="schedule-time-group">
                             <label for="schedule-time">Schedule Time:</label>
-                            <input type="datetime-local" id="schedule-time">
+                            <input type="datetime-local" id="schedule-time" required>
                         </div>
                         <div class="form-group" id="recurring-group" style="display: none;">
                             <label for="recurring-interval">Recurring Interval:</label>
@@ -1171,16 +1183,15 @@ async def admin_searches_page():
                             <div class="form-group">
                                 <label>Schedule Type:</label>
                                 <select class="bulk-schedule-type" onchange="toggleBulkScheduleOptions(this)">
-                                    <option value="immediate">Run Immediately</option>
                                     <option value="scheduled">Schedule for Later</option>
                                     <option value="recurring">Recurring</option>
                                 </select>
                             </div>
                         </div>
-                        <div class="form-row bulk-schedule-options" style="display: none;">
+                        <div class="form-row bulk-schedule-options">
                             <div class="form-group">
                                 <label>Schedule Time:</label>
-                                <input type="datetime-local" class="bulk-schedule-time">
+                                <input type="datetime-local" class="bulk-schedule-time" required>
                             </div>
                             <div class="form-group bulk-recurring-options" style="display: none;">
                                 <label>Recurring Interval:</label>
@@ -1275,7 +1286,8 @@ async def admin_searches_page():
                 console.log('Schedule type:', scheduleType);
                 
                 if (timeGroup && recurringGroup) {
-                    timeGroup.style.display = scheduleType === 'scheduled' || scheduleType === 'recurring' ? 'block' : 'none';
+                    // Always show time group since we only have scheduled/recurring options
+                    timeGroup.style.display = 'block';
                     recurringGroup.style.display = scheduleType === 'recurring' ? 'block' : 'none';
                     console.log('Schedule options toggled successfully');
                 } else {
@@ -1371,11 +1383,7 @@ async def admin_searches_page():
                 
                 const scheduleType = document.getElementById('schedule-type').value;
                 
-                if (scheduleType === 'immediate') {
-                    // For immediate searches, use the regular job search API instead
-                    alert('For immediate searches, please use the Job Search API at /search_jobs instead of the scheduler.');
-                    return;
-                } else if (scheduleType === 'scheduled') {
+                if (scheduleType === 'scheduled') {
                     formData.schedule_time = document.getElementById('schedule-time').value;
                     formData.recurring = false;
                 } else if (scheduleType === 'recurring') {
@@ -1445,6 +1453,17 @@ async def admin_searches_page():
 
             function exportSearches() {
                 window.open('/admin/searches/export', '_blank');
+            }
+
+            function openQuickSearch() {
+                // Open the direct search API endpoint in a new tab
+                const quickSearchUrl = '/api/v1/search_jobs?search_term=python+developer&location=&results_wanted=20';
+                window.open(quickSearchUrl, '_blank');
+            }
+
+            function openApiDocs() {
+                // Open the API documentation in a new tab
+                window.open('/docs', '_blank');
             }
 
             async function cancelAllPending() {
