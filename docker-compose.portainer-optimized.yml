@@ -1,0 +1,119 @@
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-jobspy}
+      - POSTGRES_USER=${POSTGRES_USER:-jobspy}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-jobspy_password}
+      - TIMESCALEDB_TELEMETRY=off
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jobspy} -d ${POSTGRES_DB:-jobspy}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s  # Give Postgres time to initialize
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  api:
+    build: 
+      context: https://github.com/gilby125/jobspy-api.git#main
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8787:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy}:${POSTGRES_PASSWORD:-jobspy_password}@postgres:5432/${POSTGRES_DB:-jobspy}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENABLE_API_KEY_AUTH=${ENABLE_API_KEY_AUTH:-false}
+      - API_KEYS=${API_KEYS:-}
+      - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-false}
+      - DEFAULT_SITE_NAMES=${DEFAULT_SITE_NAMES:-indeed,linkedin,zip_recruiter,glassdoor}
+      - DEFAULT_RESULTS_WANTED=${DEFAULT_RESULTS_WANTED:-20}
+      - DEFAULT_DISTANCE=${DEFAULT_DISTANCE:-50}
+      - DEFAULT_DESCRIPTION_FORMAT=${DEFAULT_DESCRIPTION_FORMAT:-markdown}
+      - DEFAULT_COUNTRY_INDEED=${DEFAULT_COUNTRY_INDEED:-USA}
+      - ENABLE_CACHE=${ENABLE_CACHE:-false}
+      - CACHE_EXPIRY=${CACHE_EXPIRY:-3600}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - ENABLE_HEALTH_ENDPOINTS=${ENABLE_HEALTH_ENDPOINTS:-true}
+      - ENABLE_DETAILED_HEALTH=${ENABLE_DETAILED_HEALTH:-true}
+      - ENABLE_SWAGGER_UI=${ENABLE_SWAGGER_UI:-true}
+      - ENABLE_REDOC=${ENABLE_REDOC:-true}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s  # Give API time to build and start
+
+  worker:
+    build: 
+      context: https://github.com/gilby125/jobspy-api.git#main
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy  # Wait for API to be ready too
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy}:${POSTGRES_PASSWORD:-jobspy_password}@postgres:5432/${POSTGRES_DB:-jobspy}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    restart: unless-stopped
+    command: /bin/bash -c "sleep 30 && cd /app && python -m celery -A app.celery_app worker --loglevel=info --concurrency=2"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis; r=redis.Redis(host='redis'); r.ping()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  beat:
+    build: 
+      context: https://github.com/gilby125/jobspy-api.git#main
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-jobspy}:${POSTGRES_PASSWORD:-jobspy_password}@postgres:5432/${POSTGRES_DB:-jobspy}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://redis:6379/2
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+    restart: unless-stopped
+    command: /bin/bash -c "sleep 45 && cd /app && python -m celery -A app.celery_app beat --loglevel=info"
+
+volumes:
+  postgres_data:
+  redis_data:
