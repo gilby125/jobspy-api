@@ -861,7 +861,6 @@ async def schedule_search(
     if not request.schedule_time and not request.recurring:
         # This is an immediate search - delegate to the job search service
         from app.services.job_service import JobService
-        job_service = JobService(db)
         
         # Convert admin request to job search request
         search_params = {
@@ -876,7 +875,7 @@ async def schedule_search(
         
         try:
             # Execute immediate search
-            result = await job_service.search_jobs(**search_params)
+            result = await JobService.search_jobs(search_params)
             
             # Return success response
             return {
