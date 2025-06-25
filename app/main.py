@@ -224,7 +224,7 @@ async def get_version():
             "branch": "unknown"
         }
     
-    # Get current git info if available
+    # Get current git info if available, fallback to version file
     try:
         current_commit = subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"], 
@@ -235,8 +235,9 @@ async def get_version():
             stderr=subprocess.DEVNULL
         ).decode().strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
-        current_commit = "unknown"
-        current_branch = "unknown"
+        # Fallback to version file info
+        current_commit = version_data.get("commit_hash", "unknown")
+        current_branch = version_data.get("branch", "unknown")
     
     # Get deployment timestamp
     deployment_time = datetime.now().isoformat()
