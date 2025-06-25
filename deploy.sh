@@ -82,12 +82,25 @@ run_tests() {
     if check_api_health "$LOCAL_URL"; then
         print_success "Local API is healthy"
         
-        # Run Python tests
-        if python -m pytest tests/ -v --tb=short; then
-            print_success "All tests passed"
+        # Run Python tests if pytest is available
+        if command -v pytest >/dev/null 2>&1; then
+            if python -m pytest tests/ -v --tb=short; then
+                print_success "All tests passed"
+            else
+                print_error "Some tests failed"
+                return 1
+            fi
         else
-            print_error "Some tests failed"
-            return 1
+            print_warning "pytest not installed, skipping unit tests"
+            print_status "Running basic syntax checks instead..."
+            
+            # Basic syntax check on key files
+            if python -m py_compile app/main.py app/routes/admin.py; then
+                print_success "Syntax checks passed"
+            else
+                print_error "Syntax errors found"
+                return 1
+            fi
         fi
     else
         print_warning "Local API not running, skipping tests"
