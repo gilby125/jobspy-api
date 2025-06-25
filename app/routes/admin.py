@@ -3784,7 +3784,7 @@ async def admin_analytics(db: Session = Depends(get_db)):
     active_searches = stats.get('active_searches', 0) 
     failed_searches = stats.get('failed_searches_today', 0)
     success_rate = round(((total_searches - failed_searches) / total_searches) * 100) if total_searches > 0 else 100
-    avg_results = "18.5"  # Could calculate from database
+    avg_results = 18.5  # Could calculate from database
     
     html_content = f"""
     <!DOCTYPE html>
@@ -3902,9 +3902,9 @@ async def admin_analytics(db: Session = Depends(get_db)):
         <script>
             // Simple refresh mechanism - no problematic fetch calls
             // Page will auto-refresh every 30 seconds for updated data
-            setTimeout(function() {
+            setTimeout(function() {{
                 window.location.reload();
-            }, 30000);
+            }}, 30000);
         </script>
     </body>
     </html>
