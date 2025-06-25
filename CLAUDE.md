@@ -1,6 +1,7 @@
 # Claude Code Configuration
 
  - Jobspy api docs and openapi.json is @localhost:8787/docs & http://localhost:8787/openapi.json when the docker container is running
+ - GitHub Actions webhook configured for automatic Portainer deployment on push to main
 
 ## User Instructions
 
