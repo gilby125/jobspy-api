@@ -1,0 +1,28 @@
+{
+  "name": "jobspy-api",
+  "version": "1.0.0",
+  "description": "A Docker-containerized FastAPI application that provides secure API access to the Python JobSpy library, allowing you to search for jobs across multiple platforms including LinkedIn, Indeed, Glassdoor, Google, ZipRecruiter, Bayt, and Naukri.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "example": "examples",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gilby125/jobspy-api.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gilby125/jobspy-api/issues"
+  },
+  "homepage": "https://github.com/gilby125/jobspy-api#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.53.1"
+  }
+}
