@@ -1,5 +1,6 @@
 import uuid
 import json
+import logging
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
@@ -14,6 +15,8 @@ from app.models.admin_models import (
     BulkSearchRequest, SearchTemplate, SystemConfig, SearchLog, SearchStatus
 )
 from app.services.admin_service import AdminService
+
+logger = logging.getLogger(__name__)
 from app.services.job_service import JobService
 from app.services.celery_scheduler import get_celery_scheduler
 from app.cache import cache
@@ -528,16 +531,21 @@ async def admin_dashboard():
                 
                 if (response) {
                     const result = await response.json();
-                    if (scheduleTime) {
-                        alert(`Search scheduled for ${new Date(scheduleTime).toLocaleString()}!`);
+                    console.log('Search result:', result);
+                    
+                    if (result.execution_type === 'immediate') {
+                        alert(`✅ Immediate search completed successfully!\\n\\nFound ${result.results_count || 0} jobs for "${result.search_term}"${result.location ? ' in ' + result.location : ''}.\\n\\nCheck the Jobs Database to view results.`);
+                    } else if (scheduleTime) {
+                        alert(`📅 Search scheduled for ${new Date(scheduleTime).toLocaleString()}!`);
                     } else {
-                        alert('Search scheduled for immediate execution!');
+                        alert('🚀 Search scheduled for immediate execution!');
                     }
+                    
                     document.getElementById('quick-search-form').reset();
                     document.getElementById('recurring-options').style.display = 'none';
                     loadStats();
                 } else {
-                    alert('Failed to schedule search');
+                    alert('❌ Failed to schedule search. Please check the form data and try again.');
                 }
             });
 
@@ -773,12 +781,43 @@ async def schedule_search(
     """Schedule a new job search for immediate or future execution"""
     scheduler = await get_celery_scheduler(db)
     
-    # Validate that this is actually a scheduled search (not immediate)
+    # Handle immediate search (no schedule_time and not recurring)
     if not request.schedule_time and not request.recurring:
-        raise HTTPException(
-            status_code=400, 
-            detail="Scheduler requires either a future schedule_time or recurring=true. Use /api/v1/search_jobs for immediate searches."
-        )
+        # This is an immediate search - delegate to the job search service
+        from app.services.job_service import JobService
+        job_service = JobService(db)
+        
+        # Convert admin request to job search request
+        search_params = {
+            'search_term': request.search_term,
+            'location': request.location or '',
+            'site': request.site_names[0] if request.site_names else 'indeed',  # Use first site for immediate search
+            'results_wanted': request.results_wanted or 20,
+            'hours_old': 72,  # Default
+            'country': 'US',  # Default
+            'job_type': request.job_type or ''
+        }
+        
+        try:
+            # Execute immediate search
+            result = await job_service.search_jobs(**search_params)
+            
+            # Return success response
+            return {
+                "message": "Immediate search completed successfully",
+                "search_id": None,  # No scheduled search ID for immediate searches
+                "results_count": len(result.get('jobs', [])),
+                "execution_type": "immediate",
+                "search_term": request.search_term,
+                "location": request.location
+            }
+            
+        except Exception as e:
+            logger.error(f"Immediate search failed: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Immediate search failed: {str(e)}"
+            )
     
     # Handle timezone-aware vs naive datetime comparison and get execution time
     if request.schedule_time:
