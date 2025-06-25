@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, BackgroundTasks
+from fastapi import APIRouter, Depends, Query, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 from typing import Optional, List, Dict, Any
 import csv
@@ -28,6 +28,8 @@ async def search_jobs(
     experience_level: Optional[str] = Query(None, description="Experience level filter"),
     is_remote: Optional[bool] = Query(None, description="Remote job filter"),
     days_old: Optional[int] = Query(30, description="Maximum days since posting"),
+    sort_by: str = Query("first_seen_date", description="Sort field: first_seen_date, date_posted, title, company, salary_min, salary_max"),
+    sort_order: str = Query("desc", description="Sort order: asc or desc"),
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(20, ge=1, le=100, description="Number of results per page"),
     format: str = Query("json", description="Response format: json or csv"),
@@ -35,7 +37,7 @@ async def search_jobs(
     db: Session = Depends(get_db)
 ):
     """
-    Search for jobs in the tracking database with advanced filtering.
+    Search for jobs in the tracking database with advanced filtering and sorting.
     
     This endpoint searches the job tracking database and supports:
     - Full-text search on job titles and descriptions
@@ -44,16 +46,40 @@ async def search_jobs(
     - Salary range filtering
     - Experience level filtering
     - Date range filtering
+    - Sorting by multiple fields (first_seen_date, date_posted, title, company, salary)
     - Pagination
     - CSV export
     """
+    
+    # Validate sort parameters
+    valid_sort_fields = {
+        'first_seen_date': ExistingJobPosting.date_scraped,
+        'date_posted': ExistingJobPosting.date_posted,
+        'title': ExistingJobPosting.title,
+        'company': ExistingCompany.name,
+        'salary_min': ExistingJobPosting.salary_min,
+        'salary_max': ExistingJobPosting.salary_max
+    }
+    
+    if sort_by not in valid_sort_fields:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid sort_by field. Valid options: {', '.join(valid_sort_fields.keys())}"
+        )
+    
+    if sort_order not in ['asc', 'desc']:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid sort_order. Valid options: asc, desc"
+        )
     
     # Build cache key
     cache_key = f"job_search:{hash(str(sorted([
         ('search_term', search_term), ('location', location), ('job_type', job_type),
         ('company', company), ('salary_min', salary_min), ('salary_max', salary_max),
         ('experience_level', experience_level), ('is_remote', is_remote),
-        ('days_old', days_old), ('page', page), ('page_size', page_size)
+        ('days_old', days_old), ('sort_by', sort_by), ('sort_order', sort_order),
+        ('page', page), ('page_size', page_size)
     ])))}"
     
     # Try cache first
@@ -129,9 +155,16 @@ async def search_jobs(
     # Get total count
     total_count = query.count()
     
+    # Apply sorting
+    sort_field = valid_sort_fields[sort_by]
+    if sort_order == 'desc':
+        query = query.order_by(sort_field.desc())
+    else:
+        query = query.order_by(sort_field.asc())
+    
     # Apply pagination
     offset = (page - 1) * page_size
-    jobs = query.order_by(ExistingJobPosting.date_scraped.desc()).offset(offset).limit(page_size).all()
+    jobs = query.offset(offset).limit(page_size).all()
     
     # Convert to response format
     jobs_data = []
