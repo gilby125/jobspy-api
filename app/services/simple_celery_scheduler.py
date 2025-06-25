@@ -7,7 +7,6 @@ from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-from app.tasks import execute_job_search
 
 
 class SimpleCeleryScheduler:

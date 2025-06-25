@@ -6,7 +6,6 @@ import logging
 from datetime import datetime
 
 from jobspy import scrape_jobs
-from app.models.admin_models import SearchStatus
 
 logger = logging.getLogger(__name__)
 

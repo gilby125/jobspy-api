@@ -6,7 +6,7 @@ import json
 import uuid
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional
 from dataclasses import dataclass, asdict
 from enum import Enum
 

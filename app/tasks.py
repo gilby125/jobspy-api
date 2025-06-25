@@ -198,11 +198,9 @@ def check_pending_recurring_searches(self):
     Periodic task to check for pending recurring searches that need to be executed.
     Runs every minute via Celery Beat.
     """
-    from app.services.celery_scheduler import get_celery_scheduler
     
     try:
         db = get_db_session()
-        scheduler = get_celery_scheduler(db)
         
         # Find pending searches that are due for execution
         now = datetime.utcnow()

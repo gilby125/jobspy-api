@@ -2,7 +2,6 @@
 Celery application for job orchestration.
 Manages scraping tasks, scheduling, and coordination with Go workers.
 """
-import os
 import logging
 from celery import Celery
 from celery.schedules import crontab

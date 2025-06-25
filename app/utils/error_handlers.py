@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 import logging
 
-from app.utils.validation_helpers import generate_error_suggestions, get_parameter_suggestion
+from app.utils.validation_helpers import generate_error_suggestions
 
 logger = logging.getLogger(__name__)
 

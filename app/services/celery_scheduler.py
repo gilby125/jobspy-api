@@ -2,7 +2,7 @@
 Celery-based job scheduler - much simpler and more reliable than custom Redis scheduler.
 """
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import text

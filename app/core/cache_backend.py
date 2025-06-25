@@ -5,7 +5,7 @@ Provides a unified interface that can easily switch between Redis implementation
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Union
+from typing import Any, Optional
 import redis
 from app.core.config import settings
 

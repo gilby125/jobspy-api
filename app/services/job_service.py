@@ -151,7 +151,7 @@ class JobService:
                     location_id = location_result.fetchone()[0]
                     
                     # Insert job posting
-                    job_result = db.execute(text("""
+                    db.execute(text("""
                         INSERT INTO job_postings (
                             external_id, title, company_id, location_id, description,
                             job_type, salary_min, salary_max, salary_currency, 

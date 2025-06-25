@@ -3,7 +3,7 @@ Scheduled search service for persistent testing across deployments.
 """
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 

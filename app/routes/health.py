@@ -2,7 +2,6 @@ from fastapi import APIRouter, Request, Depends, HTTPException, status
 from app.pydantic_models import HealthCheck
 from app.core.config import settings
 import logging
-import os
 import platform
 import time
 from app.utils.auth_health import check_auth_configuration

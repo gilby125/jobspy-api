@@ -1,6 +1,6 @@
 """Models for health check endpoints."""
-from pydantic import BaseModel, Field
-from typing import Dict, List, Any, Optional
+from pydantic import BaseModel
+from typing import Dict, Any, Optional
 
 class HealthCheck(BaseModel):
     """Health check response model with detailed information."""

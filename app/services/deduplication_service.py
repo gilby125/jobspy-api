@@ -17,8 +17,7 @@ import logging
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 
-from app.models.tracking_models import JobPosting, Company, Location, JobSource
-from app.db.database import get_db
+from app.models.tracking_models import JobPosting, Company, JobSource
 
 logger = logging.getLogger(__name__)
 

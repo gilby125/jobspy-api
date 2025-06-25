@@ -51,7 +51,6 @@ class JobSearchCache:
         else:
             key = params_or_key
             
-        expiry_time = expire or self.expiry
         self.cache[key] = (time.time(), data)
     
     def clear(self) -> None:

@@ -3,20 +3,16 @@ Python Celery orchestrator for managing Go scraper workers.
 Handles task distribution, monitoring, and result processing.
 """
 import logging
-import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from celery import Task
-from sqlalchemy.orm import Session
 
 from app.workers.celery_app import celery_app
 from app.workers.message_protocol import (
-    MessageProtocol, ScrapingTask, ScrapingTaskParams, ScraperType, 
-    TaskStatus, HealthStatus
+    MessageProtocol, ScrapingTask, ScrapingTaskParams, ScraperType
 )
 from app.db.database import SessionLocal
-from app.models.tracking_models import ScrapingRun, Company, JobPosting
-from app.core.config import settings
+from app.models.tracking_models import ScrapingRun
 
 logger = logging.getLogger(__name__)
 

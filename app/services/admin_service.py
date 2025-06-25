@@ -1,17 +1,15 @@
 import uuid
 import logging
 import psutil
-import redis
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc, text
+from sqlalchemy import text
 
 from app.models.admin_models import (
     ScheduledSearchRequest, ScheduledSearchResponse, AdminStats,
     SearchTemplate, SearchLog, SearchStatus
 )
-from app.cache import cache
 from app.services.log_service import LogService
 
 
@@ -60,7 +58,7 @@ class AdminService:
                 total_jobs_found = 0
                 jobs_found_today = 0
             
-        except Exception as e:
+        except Exception:
             # Fallback to zero values if database isn't available
             total_searches = 0
             searches_today = 0

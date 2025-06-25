@@ -1,8 +1,6 @@
 """
 SQLAlchemy models for job tracking system with TimescaleDB optimization.
 """
-from datetime import datetime, date
-from typing import Optional, List
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DECIMAL, DateTime, Date,
     ForeignKey, Index, UniqueConstraint, CheckConstraint, ARRAY

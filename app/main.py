@@ -1,24 +1,21 @@
-import csv
-import io
 import logging
 import os
+import subprocess
 import time
 import uuid
-from typing import List, Optional, Union
-
 from contextlib import asynccontextmanager
+from datetime import datetime
 
-from fastapi import FastAPI, Request, Query
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.cache import cache
 from app.core.config import settings
 from app.core.logging_config import get_logger, setup_logging
 from app.middleware.rate_limiter import RateLimitMiddleware
-from app.middleware.request_logger import RequestLoggerMiddleware, log_request_middleware
+from app.middleware.request_logger import RequestLoggerMiddleware
 from app.routes import api, health
 from app.utils.env_debugger import log_environment_settings
 from app.utils.error_handlers import (
@@ -42,8 +39,6 @@ logger = get_logger("main")
 logger.info(f"Starting application with log level: {log_level_name}")
 
 # Add version info for deployment tracking
-import subprocess
-import os
 try:
     # Try to get git commit hash
     git_commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], 
@@ -57,7 +52,6 @@ except:
     logger.info("🚀 JobSpy API Version: Unknown (git not available)")
 
 # Add deployment timestamp
-from datetime import datetime
 logger.info(f"📅 Deployment Time: {datetime.now().isoformat()}")
 
 # Set Uvicorn's access logger to WARNING to avoid logging health checks

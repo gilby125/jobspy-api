@@ -16,10 +16,8 @@ from sqlalchemy import and_, func
 from app.services.deduplication_service import deduplication_service
 from app.models.tracking_models import (
     JobPosting, Company, Location, JobCategory, JobSource, 
-    JobMetrics, ScrapingRun, WebhookSubscription
+    JobMetrics, ScrapingRun
 )
-from app.db.database import get_db
-from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 

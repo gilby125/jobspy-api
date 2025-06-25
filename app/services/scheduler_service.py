@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import text
 
 from app.services.job_service import JobService
-from app.models.admin_models import SearchStatus
 
 
 class SchedulerService:

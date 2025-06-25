@@ -13,7 +13,7 @@ from sqlalchemy import text
 from datetime import datetime
 import json
 from app.db.database import get_db
-from app.utils.validation_helpers import VALID_PARAMETERS, get_parameter_suggestion, generate_error_suggestions
+from app.utils.validation_helpers import VALID_PARAMETERS, get_parameter_suggestion
 from sqlalchemy.orm import Session
 from app.routes.api_helpers import parse_date_posted
 
@@ -334,7 +334,7 @@ async def search_jobs(
                         location_id = location_result.fetchone()[0]
                         
                         # Insert job posting
-                        job_result = db.execute(text("""
+                        db.execute(text("""
                             INSERT INTO job_postings (
                                 external_id, title, company_id, location_id, description,
                                 job_type, salary_min, salary_max, salary_currency, 
@@ -589,14 +589,3 @@ async def search_jobs_post(
             }
         )
 
-@router.post("/debug/create-tables")
-async def create_database_tables():
-    """Debug endpoint to create database tables."""
-    try:
-        from app.db.database import create_tables, init_database
-        init_database()
-        create_tables()
-        return {"status": "success", "message": "Database tables created successfully"}
-    except Exception as e:
-        logger.error(f"Error creating tables: {e}")
-        return {"status": "error", "message": f"Failed to create tables: {str(e)}"}
