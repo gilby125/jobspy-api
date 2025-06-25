@@ -3779,12 +3779,12 @@ async def admin_analytics(db: Session = Depends(get_db)):
     admin_service = AdminService(db)
     stats = await admin_service.get_admin_stats()
     
-    # Calculate metrics
-    total_searches = stats.get('total_searches', 0)
-    active_searches = stats.get('active_searches', 0) 
-    failed_searches = stats.get('failed_searches_today', 0)
+    # Calculate metrics from AdminStats model
+    total_searches = stats.total_searches
+    active_searches = stats.active_searches 
+    failed_searches = stats.failed_searches_today
     success_rate = round(((total_searches - failed_searches) / total_searches) * 100) if total_searches > 0 else 100
-    avg_results = 18.5  # Could calculate from database
+    avg_results = round(stats.total_jobs_found / total_searches, 1) if total_searches > 0 else 0
     
     html_content = f"""
     <!DOCTYPE html>
