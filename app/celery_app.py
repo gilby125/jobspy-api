@@ -40,7 +40,10 @@ celery_app.conf.update(
     worker_send_task_events=True,
     task_send_sent_event=True,
     beat_schedule={
-        # Add any periodic tasks here
+        'check-pending-searches': {
+            'task': 'app.tasks.check_pending_recurring_searches',
+            'schedule': 60.0,  # Check every minute
+        },
     },
 )
 

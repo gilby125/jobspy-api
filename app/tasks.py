@@ -190,3 +190,74 @@ def cleanup_old_results():
         raise e
     finally:
         db.close()
+
+
+@celery_app.task(bind=True, name="app.tasks.check_pending_recurring_searches")
+def check_pending_recurring_searches(self):
+    """
+    Periodic task to check for pending recurring searches that need to be executed.
+    Runs every minute via Celery Beat.
+    """
+    from app.services.celery_scheduler import get_celery_scheduler
+    
+    try:
+        db = get_db_session()
+        scheduler = get_celery_scheduler(db)
+        
+        # Find pending searches that are due for execution
+        now = datetime.utcnow()
+        
+        result = db.execute(text("""
+            SELECT id, config_used, start_time, created_at
+            FROM scraping_runs 
+            WHERE status = 'pending' 
+            AND start_time <= :now
+            AND celery_task_id IS NULL
+            ORDER BY start_time ASC
+            LIMIT 50
+        """), {"now": now})
+        
+        pending_searches = result.fetchall()
+        scheduled_count = 0
+        
+        for search in pending_searches:
+            try:
+                search_id = search[0]
+                config = search[1] if isinstance(search[1], dict) else json.loads(search[1])
+                
+                # Schedule the search execution
+                task = execute_job_search.apply_async(
+                    args=[search_id, config],
+                    countdown=5  # Small delay to avoid immediate execution
+                )
+                
+                # Update the database record with the Celery task ID
+                db.execute(text("""
+                    UPDATE scraping_runs 
+                    SET celery_task_id = :task_id, status = 'scheduled'
+                    WHERE id = :search_id
+                """), {
+                    "task_id": task.id,
+                    "search_id": search_id
+                })
+                
+                scheduled_count += 1
+                
+            except Exception as e:
+                print(f"Error scheduling search {search[0]}: {e}")
+                continue
+        
+        db.commit()
+        
+        return {
+            "scheduled_count": scheduled_count,
+            "total_pending": len(pending_searches),
+            "timestamp": now.isoformat()
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"Error in check_pending_recurring_searches: {e}")
+        raise e
+    finally:
+        db.close()
