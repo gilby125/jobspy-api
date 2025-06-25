@@ -1,8 +1,7 @@
-import uuid
 import json
 import logging
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -11,16 +10,13 @@ from sqlalchemy import text
 from app.api.deps import get_api_key
 from app.db.database import get_db
 from app.models.admin_models import (
-    ScheduledSearchRequest, ScheduledSearchResponse, AdminStats,
-    BulkSearchRequest, SearchTemplate, SystemConfig, SearchLog, SearchStatus
+    ScheduledSearchRequest, ScheduledSearchResponse, BulkSearchRequest, SearchStatus
 )
 from app.services.admin_service import AdminService
+from app.services.celery_scheduler import get_celery_scheduler
+from app.services.job_service import JobService
 
 logger = logging.getLogger(__name__)
-from app.services.job_service import JobService
-from app.services.celery_scheduler import get_celery_scheduler
-from app.cache import cache
-from app.core.config import settings
 
 router = APIRouter()
 
@@ -1019,10 +1015,8 @@ async def schedule_bulk_searches(
             # Handle execution time
             if search_request.schedule_time:
                 execution_time = search_request.schedule_time.replace(tzinfo=None) if search_request.schedule_time.tzinfo else search_request.schedule_time
-                is_immediate = execution_time <= datetime.now()
             else:
                 execution_time = datetime.now()
-                is_immediate = True
             
             # Schedule the search
             search_id = await scheduler.schedule_search(
@@ -1682,7 +1676,7 @@ async def cleanup_old_searches(
     admin_user: dict = Depends(get_admin_user)
 ):
     """Delete old cancelled and failed searches"""
-    from datetime import datetime, timedelta
+    from datetime import datetime
     
     cutoff_date = datetime.utcnow() - timedelta(days=days_old)
     
@@ -1698,7 +1692,7 @@ async def cleanup_old_searches(
         db.commit()
         
         return {
-            "message": f"Cleanup completed successfully", 
+            "message": "Cleanup completed successfully", 
             "deleted_count": deleted_count,
             "cutoff_date": cutoff_date.isoformat()
         }
@@ -3035,6 +3029,24 @@ async def admin_jobs():
                             </select>
                         </div>
                         <div class="filter-group">
+                            <label>Sort by:</label>
+                            <select id="sort-by">
+                                <option value="date_scraped">Date Scraped</option>
+                                <option value="date_posted">Date Posted</option>
+                                <option value="title">Job Title</option>
+                                <option value="company_name">Company</option>
+                                <option value="salary_max">Max Salary</option>
+                                <option value="salary_min">Min Salary</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label>Sort order:</label>
+                            <select id="sort-order">
+                                <option value="desc">Newest First</option>
+                                <option value="asc">Oldest First</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
                             <label>Results per page:</label>
                             <select id="page-size">
                                 <option value="25">25</option>
@@ -3297,6 +3309,12 @@ async def admin_jobs():
                 const dateFilter = document.getElementById('date-filter').value;
                 if (dateFilter) currentFilters.days_ago = dateFilter;
                 
+                const sortBy = document.getElementById('sort-by').value;
+                if (sortBy) currentFilters.sort_by = sortBy;
+                
+                const sortOrder = document.getElementById('sort-order').value;
+                if (sortOrder) currentFilters.sort_order = sortOrder;
+                
                 loadJobs(1); // Reset to page 1 when applying filters
             }
 
@@ -3310,6 +3328,8 @@ async def admin_jobs():
                 document.getElementById('salary-min').value = '';
                 document.getElementById('salary-max').value = '';
                 document.getElementById('date-filter').value = '';
+                document.getElementById('sort-by').value = 'date_scraped';
+                document.getElementById('sort-order').value = 'desc';
                 
                 currentFilters = {};
                 loadJobs(1);
@@ -3376,6 +3396,15 @@ async def admin_jobs():
             // Load data on page load
             loadJobsStats();
             loadJobs();
+            
+            // Add event listeners for sort controls
+            document.getElementById('sort-by').addEventListener('change', function() {
+                applyFilters(); // Apply all filters including new sort settings
+            });
+            
+            document.getElementById('sort-order').addEventListener('change', function() {
+                applyFilters(); // Apply all filters including new sort settings
+            });
             
             // Auto-refresh every 2 minutes
             setInterval(() => {
@@ -3792,21 +3821,21 @@ async def admin_analytics(db: Session = Depends(get_db)):
     <head>
         <title>Analytics - JobSpy Admin</title>
         <style>
-            body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
-            .container { max-width: 1200px; margin: 0 auto; }
-            .card { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .header { background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-            .nav { background: #34495e; padding: 10px; border-radius: 8px; margin-bottom: 20px; }
-            .nav a { color: white; text-decoration: none; margin-right: 20px; padding: 8px 12px; border-radius: 4px; }
-            .nav a:hover { background: #2c3e50; }
-            .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-            .metric-card { background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 20px; border-radius: 8px; text-align: center; }
-            .metric-value { font-size: 2em; font-weight: bold; margin: 10px 0; }
-            .metric-label { font-size: 0.9em; opacity: 0.9; }
-            .chart-container { height: 300px; background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
-            th { background: #f8f9fa; font-weight: bold; }
+            body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
+            .container {{ max-width: 1200px; margin: 0 auto; }}
+            .card {{ background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
+            .header {{ background: #2c3e50; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }}
+            .nav {{ background: #34495e; padding: 10px; border-radius: 8px; margin-bottom: 20px; }}
+            .nav a {{ color: white; text-decoration: none; margin-right: 20px; padding: 8px 12px; border-radius: 4px; }}
+            .nav a:hover {{ background: #2c3e50; }}
+            .metrics {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }}
+            .metric-card {{ background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 20px; border-radius: 8px; text-align: center; }}
+            .metric-value {{ font-size: 2em; font-weight: bold; margin: 10px 0; }}
+            .metric-label {{ font-size: 0.9em; opacity: 0.9; }}
+            .chart-container {{ height: 300px; background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 20px; }}
+            th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
+            th {{ background: #f8f9fa; font-weight: bold; }}
         </style>
     </head>
     <body>
@@ -4161,11 +4190,35 @@ async def get_jobs(
     salary_min: Optional[int] = Query(None),
     salary_max: Optional[int] = Query(None),
     days_ago: Optional[int] = Query(None),
+    sort_by: str = Query("date_scraped", description="Sort field: date_scraped, date_posted, title, company_name, salary_min, salary_max"),
+    sort_order: str = Query("desc", description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
     admin_user: dict = Depends(get_admin_user)
 ):
     """Get paginated jobs with filtering"""
     try:
+        # Validate sort parameters
+        valid_sort_fields = {
+            'date_scraped': 'jp.date_scraped',
+            'date_posted': 'jp.date_posted',
+            'title': 'jp.title',
+            'company_name': 'c.name',
+            'salary_min': 'jp.salary_min',
+            'salary_max': 'jp.salary_max'
+        }
+        
+        if sort_by not in valid_sort_fields:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid sort_by field. Valid options: {', '.join(valid_sort_fields.keys())}"
+            )
+        
+        if sort_order not in ['asc', 'desc']:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid sort_order. Valid options: asc, desc"
+            )
+        
         offset = (page - 1) * limit
         where_conditions = ["jp.is_active = true"]
         params = {"limit": limit, "offset": offset}
@@ -4236,7 +4289,7 @@ async def get_jobs(
             LEFT JOIN companies c ON jp.company_id = c.id
             LEFT JOIN locations l ON jp.location_id = l.id
             WHERE {where_clause}
-            ORDER BY jp.date_scraped DESC
+            ORDER BY {valid_sort_fields[sort_by]} {sort_order.upper()}
             LIMIT :limit OFFSET :offset
         """
         
@@ -4256,8 +4309,8 @@ async def get_jobs(
                 "requirements": row.requirements,
                 "job_type": row.job_type,
                 "experience_level": row.experience_level,
-                "salary_min": float(row.salary_min) if row.salary_min and not (str(row.salary_min).lower() in ['nan', 'inf', '-inf']) else None,
-                "salary_max": float(row.salary_max) if row.salary_max and not (str(row.salary_max).lower() in ['nan', 'inf', '-inf']) else None,
+                "salary_min": float(row.salary_min) if row.salary_min and str(row.salary_min).lower() not in ['nan', 'inf', '-inf'] else None,
+                "salary_max": float(row.salary_max) if row.salary_max and str(row.salary_max).lower() not in ['nan', 'inf', '-inf'] else None,
                 "salary_currency": row.salary_currency,
                 "salary_interval": row.salary_interval,
                 "is_remote": row.is_remote,
