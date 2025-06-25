@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "portainer": {
+      "command": "/home/gilby/Code/Jobspy/jobspy-api/portainer-mcp",
+      "args": [
+        "-server",
+        "http://192.168.7.10:9000",
+        "-token", 
+        "ptr_/id3E9yvlliJeZoCBv1ykfROSabOcT00r66g30YV7T8=",
+        "-tools",
+        "/home/gilby/Code/Jobspy/jobspy-api/portainer-tools.yaml"
+      ]
+    }
+  }
+}

@@ -1,0 +1,140 @@
+---
+version: v1.1
+tools:
+  - name: listEnvironments
+    description: List all available environments
+    annotations:
+      title: List Environments
+      readOnlyHint: true
+      destructiveHint: false
+      idempotentHint: true
+      openWorldHint: false
+      
+  - name: listStacks
+    description: List all available stacks
+    annotations:
+      title: List Stacks
+      readOnlyHint: true
+      destructiveHint: false
+      idempotentHint: true
+      openWorldHint: false
+      
+  - name: getStackFile
+    description: Get the compose file for a specific stack ID
+    parameters:
+      - name: id
+        description: The ID of the stack to get the compose file for
+        type: number
+        required: true
+    annotations:
+      title: Get Stack File
+      readOnlyHint: true
+      destructiveHint: false
+      idempotentHint: true
+      openWorldHint: false
+      
+  - name: createStack
+    description: Create a new stack
+    parameters:
+      - name: name
+        description: Name of the stack. Stack name must only consist of lowercase alpha characters, numbers, hyphens, or underscores as well as start with a lowercase character or number
+        type: string
+        required: true
+      - name: file
+        description: Content of the stack file. The file must be a valid docker-compose.yml file.
+        type: string
+        required: true
+      - name: environmentGroupIds
+        description: The IDs of the environment groups that the stack belongs to. Must include at least one environment group ID.
+        type: array
+        required: true
+        items:
+          type: number
+    annotations:
+      title: Create Stack
+      readOnlyHint: false
+      destructiveHint: false
+      idempotentHint: false
+      openWorldHint: false
+      
+  - name: updateStack
+    description: Update an existing stack
+    parameters:
+      - name: id
+        description: The ID of the stack to update
+        type: number
+        required: true
+      - name: file
+        description: Content of the stack file. The file must be a valid docker-compose.yml file.
+        type: string
+        required: true
+      - name: environmentGroupIds
+        description: The IDs of the environment groups that the stack belongs to. Must include at least one environment group ID.
+        type: array
+        required: true
+        items:
+          type: number
+    annotations:
+      title: Update Stack
+      readOnlyHint: false
+      destructiveHint: false
+      idempotentHint: true
+      openWorldHint: false
+      
+  - name: dockerProxy
+    description: Proxy Docker requests to a specific Portainer environment. This tool can be used with any Docker API operation.
+    parameters:
+      - name: environmentId
+        description: The ID of the environment to proxy Docker requests to
+        type: number
+        required: true
+      - name: method
+        description: The HTTP method to use to proxy the Docker API operation
+        type: string
+        required: true
+        enum:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - HEAD
+      - name: dockerAPIPath
+        description: The route of the Docker API operation to proxy. Must include the leading slash.
+        type: string
+        required: true
+      - name: queryParams
+        description: The query parameters to include in the Docker API operation. Must be an array of key-value pairs.
+        type: array
+        required: false
+        items:
+          type: object
+          properties:
+            key:
+              type: string
+              description: The key of the query parameter
+            value:
+              type: string
+              description: The value of the query parameter
+      - name: headers
+        description: The headers to include in the Docker API operation. Must be an array of key-value pairs.
+        type: array
+        required: false
+        items:
+          type: object
+          properties:
+            key:
+              type: string
+              description: The key of the header
+            value:
+              type: string
+              description: The value of the header
+      - name: body
+        description: The body of the Docker API operation to proxy. Must be a JSON string.
+        type: string
+        required: false
+    annotations:
+      title: Docker Proxy
+      readOnlyHint: true
+      destructiveHint: true
+      idempotentHint: true
+      openWorldHint: false

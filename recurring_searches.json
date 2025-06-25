@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Analyst Jobs - United States (Daily)",
+    "search_term": "Analyst",
+    "location": "United States",
+    "site_names": ["indeed", "linkedin"],
+    "results_wanted": 25,
+    "country_indeed": "USA",
+    "recurring": true,
+    "recurring_interval": "daily"
+  },
+  {
+    "name": "Software Engineer - Remote (Daily)",
+    "search_term": "Software Engineer",
+    "location": "Remote",
+    "site_names": ["indeed", "linkedin", "glassdoor"],
+    "results_wanted": 30,
+    "country_indeed": "USA",
+    "recurring": true,
+    "recurring_interval": "daily"
+  },
+  {
+    "name": "Data Scientist - Major Cities (Daily)",
+    "search_term": "Data Scientist",
+    "location": "New York, San Francisco, Seattle, Austin",
+    "site_names": ["indeed", "linkedin"],
+    "results_wanted": 20,
+    "country_indeed": "USA",
+    "recurring": true,
+    "recurring_interval": "daily"
+  },
+  {
+    "name": "Product Manager - Tech Hubs (Daily)",
+    "search_term": "Product Manager",
+    "location": "San Francisco, Seattle, Austin, Boston",
+    "site_names": ["indeed", "linkedin"],
+    "results_wanted": 20,
+    "country_indeed": "USA",
+    "recurring": true,
+    "recurring_interval": "daily"
+  },
+  {
+    "name": "Marketing Manager - United States (Daily)",
+    "search_term": "Marketing Manager",
+    "location": "United States",
+    "site_names": ["indeed", "linkedin"],
+    "results_wanted": 25,
+    "country_indeed": "USA",
+    "recurring": true,
+    "recurring_interval": "daily"
+  }
+]

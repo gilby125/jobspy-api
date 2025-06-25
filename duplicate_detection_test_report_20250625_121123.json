@@ -1,0 +1,54 @@
+{
+  "summary": {
+    "total_tests": 7,
+    "passed": 1,
+    "failed": 6,
+    "success_rate": 14.285714285714285,
+    "duration": "0:00:44.728819",
+    "timestamp": "2025-06-25T12:11:23.329139"
+  },
+  "detailed_results": [
+    {
+      "test": "Server Ready",
+      "success": true,
+      "details": "Server ready after 2 attempts",
+      "timestamp": "2025-06-25T12:10:48.679685"
+    },
+    {
+      "test": "Exact Duplicates",
+      "success": false,
+      "details": "Search 2 failed: {'error': 'HTTP 500', 'details': '{\"error\":\"Request Error\",\"status_code\":500,\"message\":{\"error\":\"Error scraping jobs\",\"message\":\"HTTPSConnectionPool(host=\\'apis.indeed.com\\', port=443): Read timed out. (read timeout=10)\",\"suggestion\":\"T'}",
+      "timestamp": "2025-06-25T12:11:02.901889"
+    },
+    {
+      "test": "Similar Jobs",
+      "success": false,
+      "details": "Search 2 failed: {'error': 'Exception', 'details': \"HTTPConnectionPool(host='192.168.7.10', port=8787): Max retries exceeded with url: /api/v1/search_jobs?search_term=Software+Engineer+Sr&location=San+Francisco&site=indeed&results_wanted=2 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3fb0ac2870>: Failed to establish a new connection: [Errno 111] Connection refused'))\"}",
+      "timestamp": "2025-06-25T12:11:08.281538"
+    },
+    {
+      "test": "Different Jobs",
+      "success": false,
+      "details": "Search 1 failed: {'error': 'Exception', 'details': \"HTTPConnectionPool(host='192.168.7.10', port=8787): Max retries exceeded with url: /api/v1/search_jobs?search_term=Data+Scientist&location=New+York&site=linkedin&results_wanted=2 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3fb0ac1fa0>: Failed to establish a new connection: [Errno 111] Connection refused'))\"}",
+      "timestamp": "2025-06-25T12:11:10.290321"
+    },
+    {
+      "test": "Tracking Database",
+      "success": false,
+      "details": "Database error: HTTPConnectionPool(host='192.168.7.10', port=8787): Max retries exceeded with url: /api/v1/jobs/search_jobs?page=1&page_size=10 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3fb0ac3200>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "timestamp": "2025-06-25T12:11:12.300424"
+    },
+    {
+      "test": "Admin Stats",
+      "success": false,
+      "details": "Admin stats error: HTTPConnectionPool(host='192.168.7.10', port=8787): Max retries exceeded with url: /admin/stats (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7e3fb0ac3aa0>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "timestamp": "2025-06-25T12:11:14.309405"
+    },
+    {
+      "test": "Deduplication Analysis",
+      "success": false,
+      "details": "Search failures prevented analysis",
+      "timestamp": "2025-06-25T12:11:21.328665"
+    }
+  ]
+}

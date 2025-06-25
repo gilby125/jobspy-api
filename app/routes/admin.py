@@ -875,16 +875,20 @@ async def schedule_search(
         
         try:
             # Execute immediate search
-            result = await JobService.search_jobs(search_params)
+            jobs_df, is_cached = await JobService.search_jobs(search_params)
+            
+            # Convert DataFrame to jobs count
+            jobs_count = len(jobs_df) if not jobs_df.empty else 0
             
             # Return success response
             return {
                 "message": "Immediate search completed successfully",
                 "search_id": None,  # No scheduled search ID for immediate searches
-                "results_count": len(result.get('jobs', [])),
+                "results_count": jobs_count,
                 "execution_type": "immediate",
                 "search_term": request.search_term,
-                "location": request.location
+                "location": request.location,
+                "cached": is_cached
             }
             
         except Exception as e:

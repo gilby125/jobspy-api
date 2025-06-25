@@ -1,0 +1,28 @@
+name: Debug Portainer Deploy
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check webhook URL exists
+      run: |
+        if [ -z "${{ secrets.PORTAINER_WEBHOOK_URL }}" ]; then
+          echo "❌ PORTAINER_WEBHOOK_URL secret is not set!"
+          exit 1
+        else
+          echo "✅ PORTAINER_WEBHOOK_URL secret exists"
+          echo "URL length: ${#PORTAINER_WEBHOOK_URL}"
+        fi
+      env:
+        PORTAINER_WEBHOOK_URL: ${{ secrets.PORTAINER_WEBHOOK_URL }}
+        
+    - name: Test webhook with verbose output
+      run: |
+        echo "Testing webhook with full debugging..."
+        response=$(curl -v -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" 2>&1)
+        echo "Full response:"
+        echo "$response"

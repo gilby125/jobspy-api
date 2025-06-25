@@ -1,0 +1,43 @@
+# Environment Variables for Portainer Stack
+# Copy and paste these into Portainer's Environment Variables section
+
+# Database Configuration
+POSTGRES_DB=jobspy
+POSTGRES_USER=jobspy
+POSTGRES_PASSWORD=jobspy_password
+
+# API Configuration (CHANGE THE API KEY!)
+API_KEYS=your-secure-api-key-replace-this
+ENABLE_API_KEY_AUTH=false
+API_KEY_HEADER_NAME=x-api-key
+
+# Rate Limiting
+RATE_LIMIT_ENABLED=false
+RATE_LIMIT_REQUESTS=100
+RATE_LIMIT_TIMEFRAME=3600
+
+# JobSpy Settings
+DEFAULT_SITE_NAMES=indeed,linkedin,zip_recruiter,glassdoor
+DEFAULT_RESULTS_WANTED=20
+DEFAULT_DISTANCE=50
+DEFAULT_DESCRIPTION_FORMAT=markdown
+DEFAULT_COUNTRY_INDEED=USA
+
+# Caching
+ENABLE_CACHE=true
+CACHE_EXPIRY=3600
+
+# Logging and Environment
+LOG_LEVEL=INFO
+ENVIRONMENT=production
+
+# CORS
+CORS_ORIGINS=*
+
+# Health and Documentation
+ENABLE_HEALTH_ENDPOINTS=true
+ENABLE_DETAILED_HEALTH=true
+ENABLE_SWAGGER_UI=true
+ENABLE_REDOC=true
+SWAGGER_UI_PATH=/docs
+REDOC_PATH=/redoc
