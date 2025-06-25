@@ -1,8 +1,8 @@
 {
   "version": "1.1.0",
-  "build_number": "5",
-  "build_date": "2025-06-25T15:49:41Z",
-  "commit_hash": "6e37291",
+  "build_number": "6",
+  "build_date": "2025-06-25T17:01:00Z",
+  "commit_hash": "pending",
   "branch": "main",
   "features": [
     "Job Search API",
@@ -12,6 +12,7 @@
     "Comprehensive Test Suite",
     "Version Display System",
     "GitHub Actions Deployment",
-    "Celery Deprecation Warnings Fixed"
+    "Celery Deprecation Warnings Fixed",
+    "Automatic Database Migrations on Startup"
   ]
 }

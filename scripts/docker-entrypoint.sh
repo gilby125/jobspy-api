@@ -60,5 +60,42 @@ except Exception as e:
     traceback.print_exc()
 "
 
+# Run database migrations before starting the app
+echo "=== Running Database Migrations ==="
+echo "Waiting for database to be ready..."
+python -c "
+import time
+import sys
+from sqlalchemy import create_engine
+from app.core.config import settings
+
+max_retries = 30
+retry_count = 0
+
+while retry_count < max_retries:
+    try:
+        engine = create_engine(settings.DATABASE_URL)
+        with engine.connect() as conn:
+            conn.execute('SELECT 1')
+        print('✅ Database connection successful')
+        break
+    except Exception as e:
+        retry_count += 1
+        print(f'⏳ Database not ready (attempt {retry_count}/{max_retries}): {e}')
+        if retry_count >= max_retries:
+            print('❌ Database connection failed after 30 attempts')
+            sys.exit(1)
+        time.sleep(2)
+"
+
+echo "Running Alembic migrations..."
+alembic upgrade head
+if [ $? -eq 0 ]; then
+    echo "✅ Database migrations completed successfully"
+else
+    echo "❌ Database migrations failed"
+    exit 1
+fi
+
 echo "=== Starting uvicorn ==="
 exec python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers
