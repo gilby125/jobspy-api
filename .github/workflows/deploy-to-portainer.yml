@@ -13,12 +13,42 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Check webhook URL secret
+      run: |
+        if [ -z "${{ secrets.PORTAINER_WEBHOOK_URL }}" ]; then
+          echo "❌ PORTAINER_WEBHOOK_URL secret is not set!"
+          echo "Please configure the webhook URL in GitHub repository secrets."
+          exit 1
+        else
+          echo "✅ PORTAINER_WEBHOOK_URL secret exists"
+        fi
+        
     - name: Trigger Portainer Webhook
       id: deploy
       run: |
         echo "Triggering Portainer deployment..."
-        response=$(curl -s -w "%{http_code}" -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}")
+        
+        # Test with timeout and verbose error reporting
+        response=$(curl -s -w "%{http_code}" --connect-timeout 30 --max-time 60 -X POST "${{ secrets.PORTAINER_WEBHOOK_URL }}" 2>&1)
+        exit_code=$?
+        
+        if [ $exit_code -ne 0 ]; then
+          echo "❌ Curl failed with exit code $exit_code"
+          case $exit_code in
+            6) echo "Couldn't resolve host" ;;
+            7) echo "Failed to connect to host" ;;
+            28) echo "Operation timeout" ;;
+            *) echo "Unknown curl error" ;;
+          esac
+          echo "Response: $response"
+          echo "deployment_status=failed" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
         http_code="${response: -3}"
+        
+        echo "HTTP Code: $http_code"
+        echo "Response: $response"
         
         if [ "$http_code" -eq 200 ] || [ "$http_code" -eq 204 ]; then
           echo "✅ Deployment triggered successfully (HTTP $http_code)"

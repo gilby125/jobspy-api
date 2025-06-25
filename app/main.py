@@ -204,6 +204,55 @@ except ImportError as e:
     async def simple_admin():
         return {"message": "Admin panel temporarily unavailable", "error": str(e)}
 
+@app.get("/version", tags=["Info"])
+async def get_version():
+    """Get application version and deployment information"""
+    import json
+    import subprocess
+    from datetime import datetime
+    
+    # Load version file
+    try:
+        with open("version.json", "r") as f:
+            version_data = json.load(f)
+    except FileNotFoundError:
+        version_data = {
+            "version": "unknown",
+            "build_number": "unknown",
+            "build_date": "unknown",
+            "commit_hash": "unknown",
+            "branch": "unknown"
+        }
+    
+    # Get current git info if available
+    try:
+        current_commit = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"], 
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+        current_branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], 
+            stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        current_commit = "unknown"
+        current_branch = "unknown"
+    
+    # Get deployment timestamp
+    deployment_time = datetime.now().isoformat()
+    
+    return {
+        "app_name": "JobSpy API",
+        "version": version_data.get("version", "unknown"),
+        "build_number": version_data.get("build_number", "unknown"),
+        "build_date": version_data.get("build_date", "unknown"),
+        "commit_hash": current_commit,
+        "branch": current_branch,
+        "deployment_time": deployment_time,
+        "features": version_data.get("features", []),
+        "status": "running"
+    }
+
 @app.get("/", tags=["Info"])
 def read_root():
     return {

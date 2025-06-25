@@ -300,6 +300,28 @@ async def admin_dashboard():
             </div>
 
             <div class="card">
+                <h2>🏷️ Version Information</h2>
+                <div class="version-info" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+                    <div class="version-item" style="background: #f8f9fa; padding: 10px; border-radius: 6px; border-left: 4px solid #007bff;">
+                        <strong>Version:</strong> <span id="app-version">Loading...</span>
+                    </div>
+                    <div class="version-item" style="background: #f8f9fa; padding: 10px; border-radius: 6px; border-left: 4px solid #28a745;">
+                        <strong>Commit:</strong> <span id="commit-hash">Loading...</span>
+                    </div>
+                    <div class="version-item" style="background: #f8f9fa; padding: 10px; border-radius: 6px; border-left: 4px solid #ffc107;">
+                        <strong>Branch:</strong> <span id="git-branch">Loading...</span>
+                    </div>
+                    <div class="version-item" style="background: #f8f9fa; padding: 10px; border-radius: 6px; border-left: 4px solid #17a2b8;">
+                        <strong>Deployed:</strong> <span id="deployment-time">Loading...</span>
+                    </div>
+                </div>
+                <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                    <strong>Build:</strong> <span id="build-info">Loading...</span> | 
+                    <strong>Status:</strong> <span id="app-status" style="color: #28a745;">Running</span>
+                </div>
+            </div>
+
+            <div class="card">
                 <h2>🚀 Quick Actions</h2>
                 <div class="actions">
                     <a href="/admin/searches" class="action-card">
@@ -475,6 +497,56 @@ async def admin_dashboard():
                         document.getElementById('active-searches').textContent = 'Error';
                         document.getElementById('system-health').textContent = 'Error';
                     }
+                }
+            }
+
+            // Load version information
+            async function loadVersionInfo() {
+                console.log('Loading version info...');
+                
+                try {
+                    const response = await fetch('/version');
+                    if (response.ok) {
+                        const version = await response.json();
+                        console.log('Version loaded:', version);
+                        
+                        document.getElementById('app-version').textContent = version.version || 'Unknown';
+                        document.getElementById('commit-hash').textContent = version.commit_hash || 'Unknown';
+                        document.getElementById('git-branch').textContent = version.branch || 'Unknown';
+                        
+                        // Format deployment time
+                        if (version.deployment_time) {
+                            const deployTime = new Date(version.deployment_time);
+                            document.getElementById('deployment-time').textContent = deployTime.toLocaleString();
+                        } else {
+                            document.getElementById('deployment-time').textContent = 'Unknown';
+                        }
+                        
+                        // Build info
+                        document.getElementById('build-info').textContent = 
+                            `#${version.build_number || 'Unknown'} (${version.build_date || 'Unknown'})`;
+                        
+                        document.getElementById('app-status').textContent = version.status || 'Unknown';
+                        
+                    } else {
+                        console.error('Failed to load version info:', response.status);
+                        // Set error values
+                        document.getElementById('app-version').textContent = 'Error';
+                        document.getElementById('commit-hash').textContent = 'Error';
+                        document.getElementById('git-branch').textContent = 'Error';
+                        document.getElementById('deployment-time').textContent = 'Error';
+                        document.getElementById('build-info').textContent = 'Error';
+                        document.getElementById('app-status').textContent = 'Error';
+                    }
+                } catch (error) {
+                    console.error('Error loading version info:', error);
+                    // Set error values
+                    document.getElementById('app-version').textContent = 'Error';
+                    document.getElementById('commit-hash').textContent = 'Error';
+                    document.getElementById('git-branch').textContent = 'Error';
+                    document.getElementById('deployment-time').textContent = 'Error';
+                    document.getElementById('build-info').textContent = 'Error';
+                    document.getElementById('app-status').textContent = 'Error';
                 }
             }
 
@@ -751,11 +823,15 @@ async def admin_dashboard():
                 alert(preview);
             }
 
-            // Load stats on page load
+            // Load stats and version info on page load
             loadStats();
+            loadVersionInfo();
             
             // Refresh stats every 30 seconds
             setInterval(loadStats, 30000);
+            
+            // Refresh version info every 5 minutes (to catch deployments)
+            setInterval(loadVersionInfo, 300000);
         </script>
     </body>
     </html>
