@@ -31,6 +31,14 @@ celery_app.conf.update(
     # Fix Celery 6.0+ deprecation warnings
     broker_connection_retry_on_startup=getattr(settings, 'CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP', True),
     broker_connection_retry=getattr(settings, 'CELERY_BROKER_CONNECTION_RETRY', True),
+    # Fix connection loss issues
+    worker_cancel_long_running_tasks_on_connection_loss=getattr(settings, 'CELERY_WORKER_CANCEL_LONG_RUNNING_TASKS_ON_CONNECTION_LOSS', True),
+    broker_connection_retry_delay=getattr(settings, 'CELERY_BROKER_CONNECTION_RETRY_DELAY', 2.0),
+    broker_connection_max_retries=getattr(settings, 'CELERY_BROKER_CONNECTION_MAX_RETRIES', 10),
+    broker_heartbeat=getattr(settings, 'CELERY_BROKER_HEARTBEAT', 30),
+    broker_pool_limit=10,
+    worker_send_task_events=True,
+    task_send_sent_event=True,
     beat_schedule={
         # Add any periodic tasks here
     },
