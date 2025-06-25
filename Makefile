@@ -1,4 +1,4 @@
-.PHONY: help install run test lint docker-build docker-run docker-compose-up docker-compose-down docker-compose-dev dev prod clean-start update test-and-build ci logs restart rebuild check-env debug-docker docker-push version version-patch version-minor version-major docker-buildx docker-pushx
+.PHONY: help install run test lint docker-build docker-run docker-compose-up docker-compose-down docker-compose-dev dev prod clean-start update test-and-build ci logs restart rebuild check-env debug-docker docker-push version version-patch version-minor version-major docker-buildx docker-pushx deploy deploy-quick monitor deploy-status
 
 help:
 	@echo "Available commands:"
@@ -33,6 +33,12 @@ help:
 	@echo "  make version-patch      - Increment patch version (1.0.0 -> 1.0.1)"
 	@echo "  make version-minor      - Increment minor version (1.0.0 -> 1.1.0)"
 	@echo "  make version-major      - Increment major version (1.0.0 -> 2.0.0)"
+	@echo ""
+	@echo "Deployment commands:"
+	@echo "  make deploy             - Full deployment with tests and verification"
+	@echo "  make deploy-quick       - Quick deployment (skip tests)"
+	@echo "  make monitor            - Check deployment status"
+	@echo "  make deploy-status      - Show deployment URLs and status"
 
 install:
 	pip install -r requirements.txt
@@ -153,3 +159,30 @@ version-minor:
 version-major:
 	@python scripts/increment_version.py major
 	@$(MAKE) version
+
+# Deployment commands
+deploy:
+	@echo "🚀 Starting full deployment..."
+	./deploy.sh
+
+deploy-quick:
+	@echo "⚡ Starting quick deployment..."
+	./deploy.sh quick
+
+monitor:
+	@echo "🔍 Checking deployment status..."
+	./monitor_deployment.sh
+
+deploy-status:
+	@echo "🌐 JobSpy Deployment Information"
+	@echo "==============================="
+	@echo ""
+	@echo "🔗 URLs:"
+	@echo "  Local:      http://localhost:8787"
+	@echo "  Deployed:   http://192.168.7.10:8787"
+	@echo "  Admin:      http://192.168.7.10:8787/admin/"
+	@echo "  Analytics:  http://192.168.7.10:8787/admin/analytics"
+	@echo "  API Docs:   http://192.168.7.10:8787/docs"
+	@echo ""
+	@echo "📊 Quick Status Check:"
+	@./monitor_deployment.sh
