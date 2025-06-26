@@ -92,7 +92,7 @@ class JobService:
             
             for site in site_names:
                 # Filter jobs for this site
-                site_jobs = [job for job in jobs_data if job.get('site', '').lower() == site.lower()]
+                site_jobs = [job for job in jobs_data if self._safe_str(job.get('site', '')).lower() == site.lower()]
                 
                 if site_jobs:
                     # Process jobs through the tracking service
@@ -164,3 +164,16 @@ class JobService:
             
         ascending = sort_order.lower() != 'desc'
         return jobs_df.sort_values(by=sort_by, ascending=ascending)
+    
+    @staticmethod
+    def _safe_str(value: Any) -> str:
+        """Safely convert any value to string, handling NaN values."""
+        if value is None:
+            return ''
+        
+        # Handle NaN values from pandas
+        import math
+        if isinstance(value, float) and math.isnan(value):
+            return ''
+        
+        return str(value)

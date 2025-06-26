@@ -238,7 +238,7 @@ class JobTrackingService:
     
     def _get_or_create_company(self, job_data: Dict, db: Session) -> Company:
         """Get existing company or create new one."""
-        company_name = job_data.get('company', '').strip()
+        company_name = self._safe_str(job_data.get('company', '')).strip()
         if not company_name:
             # Create a placeholder company
             company_name = "Unknown Company"
