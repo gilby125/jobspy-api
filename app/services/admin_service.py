@@ -13,6 +13,7 @@ from app.models.admin_models import (
 )
 from app.cache import cache
 from app.services.log_service import LogService
+from app.services.job_tracking_service import job_tracking_service
 
 
 class AdminService:
@@ -46,13 +47,13 @@ class AdminService:
             ))
             active_searches = result.scalar() or 0
             
-            # Get job posting statistics (check if job_postings table exists)
+            # Get job posting statistics from tracking schema
             try:
-                result = self.db.execute(text("SELECT COUNT(*) FROM job_postings"))
+                result = self.db.execute(text("SELECT COUNT(*) FROM job_postings WHERE status = 'active'"))
                 total_jobs_found = result.scalar() or 0
                 
                 result = self.db.execute(text(
-                    "SELECT COUNT(*) FROM job_postings WHERE created_at >= :today_start"
+                    "SELECT COUNT(*) FROM job_postings WHERE first_seen_at >= :today_start AND status = 'active'"
                 ), {"today_start": today_start})
                 jobs_found_today = result.scalar() or 0
             except Exception:
@@ -91,6 +92,80 @@ class AdminService:
             failed_searches_today=failed_searches_today,
             cache_hit_rate=cache_hit_rate,
             system_health=system_health
+        )
+    
+    async def get_tracking_stats(self) -> Dict[str, Any]:
+        """Get enhanced tracking statistics using the tracking schema"""
+        try:
+            # Total jobs with tracking metrics
+            result = self.db.execute(text("SELECT COUNT(*) FROM job_postings WHERE status = 'active'"))
+            total_jobs = result.scalar() or 0
+            
+            # Active jobs (same as total for tracking schema)
+            active_jobs = total_jobs
+            
+            # Jobs with duplicates (from job_metrics table)
+            result = self.db.execute(text("""
+                SELECT COUNT(DISTINCT jp.id) 
+                FROM job_postings jp 
+                JOIN job_metrics jm ON jp.id = jm.job_posting_id 
+                WHERE jm.total_seen_count > 1 AND jp.status = 'active'
+            """))
+            duplicate_jobs = result.scalar() or 0
+            
+            # Multi-source jobs (jobs found on multiple sites)
+            result = self.db.execute(text("""
+                SELECT COUNT(DISTINCT jp.id) 
+                FROM job_postings jp 
+                JOIN job_metrics jm ON jp.id = jm.job_posting_id 
+                WHERE jm.sites_posted_count > 1 AND jp.status = 'active'
+            """))
+            multi_source_jobs = result.scalar() or 0
+            
+            # Total companies
+            result = self.db.execute(text("SELECT COUNT(*) FROM companies"))
+            total_companies = result.scalar() or 0
+            
+            # Total sources tracked
+            result = self.db.execute(text("SELECT COUNT(DISTINCT source_site) FROM job_sources"))
+            total_sources = result.scalar() or 0
+            
+            # Calculate deduplication rate
+            deduplication_rate = round((duplicate_jobs / total_jobs * 100), 1) if total_jobs > 0 else 0
+            
+            return {
+                "total_jobs": total_jobs,
+                "active_jobs": active_jobs,
+                "duplicate_jobs": duplicate_jobs,
+                "multi_source_jobs": multi_source_jobs,
+                "total_companies": total_companies,
+                "total_sources": total_sources,
+                "deduplication_rate": deduplication_rate
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting tracking stats: {e}")
+            return {
+                "total_jobs": 0,
+                "active_jobs": 0,
+                "duplicate_jobs": 0,
+                "multi_source_jobs": 0,
+                "total_companies": 0,
+                "total_sources": 0,
+                "deduplication_rate": 0
+            }
+    
+    def get_job_analytics(
+        self, 
+        company_id: Optional[int] = None,
+        location_id: Optional[int] = None,
+        days_back: int = 30
+    ) -> Dict[str, Any]:
+        """Get job analytics using the JobTrackingService"""
+        return job_tracking_service.get_job_analytics(
+            db=self.db,
+            company_id=company_id,
+            location_id=location_id,
+            days_back=days_back
         )
     
     async def _check_system_health(self) -> Dict[str, str]:
