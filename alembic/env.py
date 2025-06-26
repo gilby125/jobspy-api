@@ -35,17 +35,7 @@ target_metadata = Base.metadata
 
 def get_database_url():
     """Get database URL from environment or settings."""
-    # Use DATABASE_URL from environment if available
-    database_url = os.getenv('DATABASE_URL')
-    if database_url:
-        return database_url
-    
-    # Fallback to settings
-    if hasattr(settings, 'DATABASE_URL') and settings.DATABASE_URL:
-        return settings.DATABASE_URL
-    
-    # Default for local development
-    return "postgresql://jobspy:password@localhost:5432/jobspy"
+    return "postgresql://jobspy:jobspy_password@localhost:5432/jobspy"
 
 
 def run_migrations_offline() -> None:

@@ -380,7 +380,7 @@ class JobTrackingService:
         cutoff_date = datetime.utcnow() - timedelta(days=days_back)
         
         # Build WHERE clause
-        where_conditions = ["jp.date_scraped >= :cutoff_date", "jp.is_active = true"]
+        where_conditions = ["jp.first_seen_at >= :cutoff_date", "jp.status = 'active'"]
         params = {"cutoff_date": cutoff_date}
         
         if company_id:

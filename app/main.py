@@ -178,13 +178,20 @@ async def log_requests(request: Request, call_next):
 app.include_router(api.router, prefix="/api/v1", tags=["Jobs"])
 app.include_router(health.router, tags=["Health"])
 
-# Include advanced jobs API router with database integration
+# Include tracking jobs API router with new schema
 try:
-    from app.api.routes import jobs
-    app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Advanced Jobs"])
-    logger.info("Advanced jobs API router loaded successfully")
+    from app.api.routes import jobs_tracking
+    app.include_router(jobs_tracking.router, prefix="/api/v1/jobs", tags=["Job Tracking"])
+    logger.info("Job tracking API router loaded successfully")
 except ImportError as e:
-    logger.warning(f"Could not load advanced jobs router: {e}")
+    logger.warning(f"Could not load job tracking router: {e}")
+    # Fallback to old jobs router if tracking router fails
+    try:
+        from app.api.routes import jobs
+        app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["Advanced Jobs (Legacy)"])
+        logger.info("Fallback to legacy jobs API router")
+    except ImportError as e2:
+        logger.warning(f"Could not load any jobs router: {e2}")
 
 # Add admin routes
 try:
