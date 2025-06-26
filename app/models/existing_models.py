@@ -118,6 +118,11 @@ class ExistingJobMetrics(Base):
     save_count = Column(Integer, nullable=False)
     search_appearance_count = Column(Integer, nullable=False)
     last_updated = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+    # Fields for robust repost and evergreen tracking
+    repost_count = Column(Integer, nullable=False, default=0, index=True)
+    is_evergreen = Column(Boolean, nullable=False, default=False, index=True)
+    evergreen_score = Column(Integer, nullable=False, default=0, index=True)
     
     # Relationships
     job_posting = relationship("ExistingJobPosting", back_populates="job_metrics")
