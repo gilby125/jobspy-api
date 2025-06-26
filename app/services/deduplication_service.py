@@ -52,12 +52,12 @@ class JobDeduplicationService:
         """
         # Normalize and combine key fields for hashing
         normalized_data = {
-            'title': self._normalize_title(job_data.get('title', '')),
-            'company': self._normalize_company_name(job_data.get('company', '')),
-            'location': self._normalize_location(job_data.get('location', '')),
-            'job_type': job_data.get('job_type', '').lower().strip(),
+            'title': self._normalize_title(self._safe_str(job_data.get('title', ''))),
+            'company': self._normalize_company_name(self._safe_str(job_data.get('company', ''))),
+            'location': self._normalize_location(self._safe_str(job_data.get('location', ''))),
+            'job_type': self._safe_str(job_data.get('job_type', '')).lower().strip(),
             'description_snippet': self._extract_description_snippet(
-                job_data.get('description', '')
+                self._safe_str(job_data.get('description', ''))
             )
         }
         
@@ -209,8 +209,8 @@ class JobDeduplicationService:
         Uses database queries to narrow down potential matches before expensive similarity calculations.
         """
         # Get normalized search terms
-        normalized_title = self._normalize_title(job_data.get('title', ''))
-        normalized_company = self._normalize_company_name(job_data.get('company', ''))
+        normalized_title = self._normalize_title(self._safe_str(job_data.get('title', '')))
+        normalized_company = self._normalize_company_name(self._safe_str(job_data.get('company', '')))
         
         # Extract key terms from title for broader matching
         title_terms = self._extract_key_terms(normalized_title)
@@ -261,17 +261,17 @@ class JobDeduplicationService:
         scores = {}
         
         # Title similarity (40%)
-        new_title = self._normalize_title(job_data.get('title', ''))
-        existing_title = self._normalize_title(existing_job.title)
+        new_title = self._normalize_title(self._safe_str(job_data.get('title', '')))
+        existing_title = self._normalize_title(self._safe_str(existing_job.title))
         scores['title'] = self._text_similarity(new_title, existing_title) * 0.4
         
         # Company similarity (30%)
-        new_company = self._normalize_company_name(job_data.get('company', ''))
-        existing_company = self._normalize_company_name(existing_job.company.name)
+        new_company = self._normalize_company_name(self._safe_str(job_data.get('company', '')))
+        existing_company = self._normalize_company_name(self._safe_str(existing_job.company.name))
         scores['company'] = self._text_similarity(new_company, existing_company) * 0.3
         
         # Location similarity (15%)
-        new_location = self._normalize_location(job_data.get('location', ''))
+        new_location = self._normalize_location(self._safe_str(job_data.get('location', '')))
         existing_location = self._normalize_location(
             f"{existing_job.location.city}, {existing_job.location.state}" 
             if existing_job.location else ""
@@ -279,13 +279,13 @@ class JobDeduplicationService:
         scores['location'] = self._text_similarity(new_location, existing_location) * 0.15
         
         # Job type similarity (10%)
-        new_job_type = job_data.get('job_type', '').lower().strip()
-        existing_job_type = existing_job.job_type.lower() if existing_job.job_type else ''
+        new_job_type = self._safe_str(job_data.get('job_type', '')).lower().strip()
+        existing_job_type = self._safe_str(existing_job.job_type).lower() if existing_job.job_type else ''
         scores['job_type'] = (1.0 if new_job_type == existing_job_type else 0.0) * 0.1
         
         # Description similarity (5%)
-        new_desc_snippet = self._extract_description_snippet(job_data.get('description', ''))
-        existing_desc_snippet = self._extract_description_snippet(existing_job.description or '')
+        new_desc_snippet = self._extract_description_snippet(self._safe_str(job_data.get('description', '')))
+        existing_desc_snippet = self._extract_description_snippet(self._safe_str(existing_job.description or ''))
         scores['description'] = self._text_similarity(new_desc_snippet, existing_desc_snippet) * 0.05
         
         total_score = sum(scores.values())
@@ -426,6 +426,18 @@ class JobDeduplicationService:
         except Exception as e:
             logger.error(f"Error parsing date {date_str}: {e}")
             return None
+    
+    def _safe_str(self, value) -> str:
+        """Safely convert any value to string, handling NaN values."""
+        if value is None:
+            return ''
+        
+        # Handle NaN values from pandas
+        import math
+        if isinstance(value, float) and math.isnan(value):
+            return ''
+        
+        return str(value)
 
 
 # Global service instance
