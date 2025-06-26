@@ -34,9 +34,9 @@ def execute_job_search(self, search_id: int, search_params: dict):
         # Update status to running
         db.execute(text("""
             UPDATE scraping_runs 
-            SET status = 'running', start_time = :start_time
+            SET status = 'running', started_at = :started_at
             WHERE id = :id
-        """), {"id": search_id, "start_time": datetime.now()})
+        """), {"id": search_id, "started_at": datetime.now()})
         db.commit()
         
         # Update task status
@@ -60,20 +60,21 @@ def execute_job_search(self, search_id: int, search_params: dict):
         # Save jobs to database if we found any
         jobs_saved = 0
         if jobs_found > 0:
-            jobs_saved = asyncio.run(JobService.save_jobs_to_database(jobs_df, search_params, db, search_id))
+            save_stats = asyncio.run(JobService.save_jobs_to_database(jobs_df, search_params, db))
+            jobs_saved = save_stats.get("new_jobs", 0)
             print(f"Saved {jobs_saved} out of {jobs_found} jobs to database")
         
         # Update with results
         db.execute(text("""
             UPDATE scraping_runs 
-            SET status = 'completed', end_time = :end_time, 
-                jobs_found = :jobs_found, jobs_processed = :jobs_processed
+            SET status = 'completed', completed_at = :completed_at, 
+                jobs_found = :jobs_found, jobs_new = :jobs_new
             WHERE id = :id
         """), {
             "id": search_id,
-            "end_time": datetime.now(),
+            "completed_at": datetime.now(),
             "jobs_found": jobs_found,
-            "jobs_processed": jobs_found
+            "jobs_new": jobs_saved
         })
         db.commit()
         
@@ -92,13 +93,13 @@ def execute_job_search(self, search_id: int, search_params: dict):
         # Mark as failed
         db.execute(text("""
             UPDATE scraping_runs 
-            SET status = 'failed', end_time = :end_time, 
-                error_details = :error_details
+            SET status = 'failed', completed_at = :completed_at, 
+                error_message = :error_message
             WHERE id = :id
         """), {
             "id": search_id,
-            "end_time": datetime.now(),
-            "error_details": json.dumps({"error": str(e)})
+            "completed_at": datetime.now(),
+            "error_message": str(e)
         })
         db.commit()
         
@@ -206,12 +207,11 @@ def check_pending_recurring_searches(self):
         now = datetime.utcnow()
         
         result = db.execute(text("""
-            SELECT id, config_used, start_time, created_at
+            SELECT id, search_params, started_at, created_at
             FROM scraping_runs 
             WHERE status = 'pending' 
-            AND start_time <= :now
-            AND celery_task_id IS NULL
-            ORDER BY start_time ASC
+            AND started_at <= :now
+            ORDER BY started_at ASC
             LIMIT 50
         """), {"now": now})
         

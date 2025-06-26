@@ -91,7 +91,8 @@ class JobTrackingService:
                     })
                     
                 except Exception as e:
-                    logger.error(f"Error processing job: {e}")
+                    logger.error(f"Error processing job '{job_data.get('title', 'Unknown')}': {e}")
+                    logger.error(f"Job data: {job_data}")
                     stats['errors'] += 1
             
             # Update scraping run
@@ -186,19 +187,19 @@ class JobTrackingService:
         # Create job posting
         job_posting = JobPosting(
             job_hash=job_hash,
-            title=job_data.get('title', '').strip(),
+            title=self._safe_str(job_data.get('title', '')).strip(),
             company_id=company.id,
             location_id=location.id if location else None,
             job_category_id=job_category.id if job_category else None,
-            job_type=job_data.get('job_type', '').lower(),
-            experience_level=self._extract_experience_level(job_data.get('title', '')),
-            is_remote='remote' in job_data.get('location', '').lower(),
-            description=job_data.get('description', ''),
-            requirements=self._extract_requirements(job_data.get('description', '')),
+            job_type=self._safe_str(job_data.get('job_type', '')).lower(),
+            experience_level=self._extract_experience_level(self._safe_str(job_data.get('title', ''))),
+            is_remote='remote' in self._safe_str(job_data.get('location', '')).lower(),
+            description=self._safe_str(job_data.get('description', '')),
+            requirements=self._extract_requirements(self._safe_str(job_data.get('description', ''))),
             salary_min=self._parse_salary(job_data.get('min_amount')),
             salary_max=self._parse_salary(job_data.get('max_amount')),
-            salary_currency=job_data.get('currency', 'USD'),
-            salary_interval=job_data.get('interval', 'yearly'),
+            salary_currency=self._safe_str(job_data.get('currency')) or 'USD',
+            salary_interval=self._safe_str(job_data.get('interval')) or 'yearly',
             first_seen_at=datetime.utcnow(),
             last_seen_at=datetime.utcnow(),
             status='active'
@@ -270,8 +271,8 @@ class JobTrackingService:
     
     def _get_or_create_location(self, job_data: Dict, db: Session) -> Optional[Location]:
         """Get existing location or create new one."""
-        location_str = job_data.get('location', '').strip()
-        if not location_str or location_str.lower() in ['remote', 'work from home']:
+        location_str = str(job_data.get('location', '')).strip()
+        if not location_str or self._safe_str(location_str).lower() in ['remote', 'work from home']:
             return None
         
         # Parse location components
@@ -307,7 +308,7 @@ class JobTrackingService:
     
     def _get_or_create_job_category(self, job_data: Dict, db: Session) -> Optional[JobCategory]:
         """Get existing job category or create new one based on title."""
-        title = job_data.get('title', '').strip().lower()
+        title = self._safe_str(job_data.get('title', '')).strip().lower()
         if not title:
             return None
         
@@ -448,7 +449,7 @@ class JobTrackingService:
     # Helper methods
     def _extract_experience_level(self, title: str) -> str:
         """Extract experience level from job title."""
-        title_lower = title.lower()
+        title_lower = self._safe_str(title).lower()
         if any(word in title_lower for word in ['senior', 'sr.', 'lead', 'principal']):
             return 'senior'
         elif any(word in title_lower for word in ['junior', 'jr.', 'entry', 'associate']):
@@ -469,7 +470,7 @@ class JobTrackingService:
             'you will need:', 'skills required:', 'essential:'
         ]
         
-        desc_lower = description.lower()
+        desc_lower = self._safe_str(description).lower()
         for indicator in requirements_indicators:
             start_idx = desc_lower.find(indicator)
             if start_idx != -1:
@@ -485,8 +486,17 @@ class JobTrackingService:
             return None
         
         try:
+            # Handle NaN values from pandas
+            import math
+            if isinstance(amount, float) and math.isnan(amount):
+                return None
+            
             if isinstance(amount, (int, float)):
                 return float(amount)
+            
+            # Handle string 'nan' values
+            if str(amount).lower() in ['nan', 'none', 'null', '']:
+                return None
             
             # Remove currency symbols and commas
             amount_str = str(amount).replace('$', '').replace(',', '').strip()
@@ -497,6 +507,18 @@ class JobTrackingService:
     def _parse_date(self, date_str: Any) -> Optional[date]:
         """Parse date string - delegate to deduplication service."""
         return self.dedup_service._parse_date(date_str)
+    
+    def _safe_str(self, value: Any) -> str:
+        """Safely convert any value to string, handling NaN values."""
+        if value is None:
+            return ''
+        
+        # Handle NaN values from pandas
+        import math
+        if isinstance(value, float) and math.isnan(value):
+            return ''
+        
+        return str(value)
     
     def _parse_location_components(self, location_str: str) -> Tuple[str, str, str]:
         """Parse location string into city, state, country components."""
@@ -547,7 +569,7 @@ class JobTrackingService:
             'Consulting': ['consulting', 'advisory', 'professional services']
         }
         
-        desc_lower = description.lower()
+        desc_lower = self._safe_str(description).lower()
         for industry, keywords in industry_keywords.items():
             if any(keyword in desc_lower for keyword in keywords):
                 return industry

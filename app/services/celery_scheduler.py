@@ -23,24 +23,19 @@ class CeleryScheduler:
         
         # Create database record
         result = self.db.execute(text("""
-            INSERT INTO scraping_runs (source_platform, search_terms, locations, 
-                                     start_time, status, jobs_found, jobs_processed, 
-                                     jobs_skipped, error_count, config_used)
-            VALUES (:source_platform, ARRAY[:search_term], ARRAY[:location], :start_time, 
-                    :status, :jobs_found, :jobs_processed, :jobs_skipped, 
-                    :error_count, :config_used)
+            INSERT INTO scraping_runs (source_site, search_params, started_at, 
+                                     status, jobs_found, jobs_new, jobs_updated)
+            VALUES (:source_site, :search_params, :started_at, 
+                    :status, :jobs_found, :jobs_new, :jobs_updated)
             RETURNING id
         """), {
-            "source_platform": ",".join(search_config.get("site_names", ["indeed"])),
-            "search_term": search_config.get("search_term", ""),
-            "location": search_config.get("location", ""),
-            "start_time": execution_time,
+            "source_site": ",".join(search_config.get("site_names", ["indeed"])),
+            "search_params": json.dumps(search_config, default=str),
+            "started_at": execution_time,
             "status": "pending",
             "jobs_found": 0,
-            "jobs_processed": 0,
-            "jobs_skipped": 0,
-            "error_count": 0,
-            "config_used": json.dumps(search_config, default=str)
+            "jobs_new": 0,
+            "jobs_updated": 0
         })
         
         search_id = result.fetchone()[0]
@@ -68,11 +63,11 @@ class CeleryScheduler:
         
         self.db.execute(text("""
             UPDATE scraping_runs 
-            SET config_used = :config_used
+            SET search_params = :search_params
             WHERE id = :id
         """), {
             "id": search_id,
-            "config_used": json.dumps(current_config, default=str)
+            "search_params": json.dumps(current_config, default=str)
         })
         self.db.commit()
         
@@ -83,7 +78,7 @@ class CeleryScheduler:
         try:
             # First check if search exists and can be cancelled
             check_result = self.db.execute(text("""
-                SELECT id, status, config_used FROM scraping_runs 
+                SELECT id, status, search_params FROM scraping_runs 
                 WHERE id = :id
             """), {"id": search_id})
             
@@ -95,7 +90,7 @@ class CeleryScheduler:
                 return False  # Search cannot be cancelled (already completed/failed/cancelled)
             
             # Try to cancel Celery task if it exists
-            config = search_row.config_used if search_row.config_used else {}
+            config = search_row.search_params if search_row.search_params else {}
             # Handle both dict and JSON string formats
             if isinstance(config, str):
                 config = json.loads(config)
@@ -112,9 +107,9 @@ class CeleryScheduler:
             # Update database status to cancelled
             update_result = self.db.execute(text("""
                 UPDATE scraping_runs 
-                SET status = 'cancelled', end_time = :end_time
+                SET status = 'cancelled', completed_at = :completed_at
                 WHERE id = :id AND status IN ('pending', 'running')
-            """), {"id": search_id, "end_time": datetime.now()})
+            """), {"id": search_id, "completed_at": datetime.now()})
             
             self.db.commit()
             return update_result.rowcount > 0

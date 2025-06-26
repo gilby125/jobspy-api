@@ -4,12 +4,12 @@ from typing import Optional, List, Dict, Any
 import csv
 import io
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, text
 
 from app.api.deps import get_api_key
 from app.db.database import get_db
 from app.pydantic_models import PaginatedJobResponse
-from app.models.existing_models import ExistingJobPosting, ExistingCompany, ExistingLocation, ExistingJobCategory
+from app.models.tracking_models import JobPosting, Company, Location, JobCategory, JobSource, JobMetrics
 from app.services.job_tracking_service import job_tracking_service
 from app.cache import cache
 from app.core.config import settings
@@ -53,12 +53,12 @@ async def search_jobs(
     
     # Validate sort parameters
     valid_sort_fields = {
-        'first_seen_date': ExistingJobPosting.date_scraped,
-        'date_posted': ExistingJobPosting.date_posted,
-        'title': ExistingJobPosting.title,
-        'company': ExistingCompany.name,
-        'salary_min': ExistingJobPosting.salary_min,
-        'salary_max': ExistingJobPosting.salary_max
+        'first_seen_date': JobPosting.first_seen_at,
+        'date_posted': JobSource.post_date,
+        'title': JobPosting.title,
+        'company': Company.name,
+        'salary_min': JobPosting.salary_min,
+        'salary_max': JobPosting.salary_max
     }
     
     if sort_by not in valid_sort_fields:
@@ -91,66 +91,67 @@ async def search_jobs(
             return PaginatedJobResponse(**cached_result, cached=True)
     
     # Build query with eager loading to prevent N+1 queries
-    query = db.query(ExistingJobPosting).join(ExistingCompany).outerjoin(ExistingLocation).outerjoin(ExistingJobCategory).options(
-        joinedload(ExistingJobPosting.company),
-        joinedload(ExistingJobPosting.location),
-        joinedload(ExistingJobPosting.job_category),
-        joinedload(ExistingJobPosting.job_metrics)
+    query = db.query(JobPosting).join(Company).outerjoin(Location).outerjoin(JobCategory).outerjoin(JobMetrics).options(
+        joinedload(JobPosting.company),
+        joinedload(JobPosting.location),
+        joinedload(JobPosting.job_category),
+        joinedload(JobPosting.job_metrics),
+        joinedload(JobPosting.job_sources)
     )
     
     # Apply filters
     if search_term:
         search_filter = or_(
-            func.lower(ExistingJobPosting.title).contains(search_term.lower()),
-            func.lower(ExistingJobPosting.description).contains(search_term.lower()),
-            func.lower(ExistingCompany.name).contains(search_term.lower())
+            func.lower(JobPosting.title).contains(search_term.lower()),
+            func.lower(JobPosting.description).contains(search_term.lower()),
+            func.lower(Company.name).contains(search_term.lower())
         )
         query = query.filter(search_filter)
     
     if location:
         location_filter = or_(
-            func.lower(ExistingLocation.city).contains(location.lower()),
-            func.lower(ExistingLocation.state).contains(location.lower()),
-            func.lower(ExistingLocation.country).contains(location.lower())
+            func.lower(Location.city).contains(location.lower()),
+            func.lower(Location.state).contains(location.lower()),
+            func.lower(Location.country).contains(location.lower())
         )
         query = query.filter(location_filter)
     
     if company:
-        query = query.filter(func.lower(ExistingCompany.name).contains(company.lower()))
+        query = query.filter(func.lower(Company.name).contains(company.lower()))
     
     if job_type:
-        query = query.filter(func.lower(ExistingJobPosting.job_type) == job_type.lower())
+        query = query.filter(func.lower(JobPosting.job_type) == job_type.lower())
     
     if experience_level:
-        query = query.filter(func.lower(ExistingJobPosting.experience_level) == experience_level.lower())
+        query = query.filter(func.lower(JobPosting.experience_level) == experience_level.lower())
     
     if is_remote is not None:
-        query = query.filter(ExistingJobPosting.is_remote == is_remote)
+        query = query.filter(JobPosting.is_remote == is_remote)
     
     if salary_min:
         query = query.filter(
             or_(
-                ExistingJobPosting.salary_min >= salary_min,
-                ExistingJobPosting.salary_max >= salary_min
+                JobPosting.salary_min >= salary_min,
+                JobPosting.salary_max >= salary_min
             )
         )
     
     if salary_max:
         query = query.filter(
             or_(
-                ExistingJobPosting.salary_min <= salary_max,
-                ExistingJobPosting.salary_max <= salary_max
+                JobPosting.salary_min <= salary_max,
+                JobPosting.salary_max <= salary_max
             )
         )
     
-    # Date filter - use date_scraped as the first seen date
+    # Date filter - use first_seen_at
     if days_old:
         from datetime import datetime, timedelta
         cutoff_date = datetime.utcnow() - timedelta(days=days_old)
-        query = query.filter(ExistingJobPosting.date_scraped >= cutoff_date)
+        query = query.filter(JobPosting.first_seen_at >= cutoff_date)
     
     # Only active jobs
-    query = query.filter(ExistingJobPosting.is_active)
+    query = query.filter(JobPosting.status == 'active')
     
     # Get total count
     total_count = query.count()
@@ -352,7 +353,7 @@ async def get_locations(
 
 @router.get("/scraping-runs", response_model=List[Dict[str, Any]])
 async def get_scraping_runs(
-    source_platform: Optional[str] = Query(None, description="Filter by source platform"),
+    source_site: Optional[str] = Query(None, description="Filter by source site"),
     status: Optional[str] = Query(None, description="Filter by status"),
     limit: int = Query(50, ge=1, le=200, description="Number of runs to return"),
     api_key: str = Depends(get_api_key),
@@ -365,9 +366,9 @@ async def get_scraping_runs(
     where_conditions = []
     params = {"limit": limit}
     
-    if source_platform:
-        where_conditions.append("source_platform = :source_platform")
-        params["source_platform"] = source_platform
+    if source_site:
+        where_conditions.append("source_site = :source_site")
+        params["source_site"] = source_site
     
     if status:
         where_conditions.append("status = :status")
@@ -377,11 +378,11 @@ async def get_scraping_runs(
     
     runs_sql = f"""
         SELECT 
-            id, source_platform, status, jobs_found, jobs_processed, jobs_skipped,
-            start_time, end_time, error_details, config_used
+            id, source_site, status, jobs_found, jobs_new, jobs_updated,
+            started_at, completed_at, error_message, search_params
         FROM scraping_runs 
         WHERE {where_clause}
-        ORDER BY start_time DESC 
+        ORDER BY started_at DESC 
         LIMIT :limit
     """
     
@@ -390,15 +391,15 @@ async def get_scraping_runs(
     return [
         {
             'id': run[0],
-            'source_platform': run[1],
+            'source_site': run[1],
             'status': run[2],
             'jobs_found': run[3],
-            'jobs_processed': run[4],
-            'jobs_skipped': run[5],
-            'start_time': run[6].isoformat() if run[6] else None,
-            'end_time': run[7].isoformat() if run[7] else None,
-            'error_details': run[8],
-            'config_used': run[9]
+            'jobs_new': run[4],
+            'jobs_updated': run[5],
+            'started_at': run[6].isoformat() if run[6] else None,
+            'completed_at': run[7].isoformat() if run[7] else None,
+            'error_message': run[8],
+            'search_params': run[9]
         }
         for run in runs
     ]

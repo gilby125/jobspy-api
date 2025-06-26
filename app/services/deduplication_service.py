@@ -10,7 +10,7 @@ This service implements intelligent job deduplication using:
 import hashlib
 import re
 from typing import Dict, List, Optional, Tuple, Set
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from difflib import SequenceMatcher
 import logging
 
@@ -220,7 +220,7 @@ class JobDeduplicationService:
         
         # Date filter
         cutoff_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-        cutoff_date = cutoff_date.replace(day=cutoff_date.day - max_age_days)
+        cutoff_date = cutoff_date - timedelta(days=max_age_days)
         query = query.filter(JobPosting.first_seen_at >= cutoff_date)
         
         # Company name similarity (exact or partial match)
@@ -414,8 +414,11 @@ class JobDeduplicationService:
             for fmt in ['%Y-%m-%d', '%m/%d/%Y', '%d/%m/%Y', '%Y-%m-%d %H:%M:%S']:
                 try:
                     parsed = datetime.strptime(str(date_str), fmt).date()
+                    # Validate the parsed date is reasonable
+                    if parsed.year < 1900 or parsed.year > 2030:
+                        continue
                     return parsed
-                except ValueError:
+                except (ValueError, OverflowError):
                     continue
             
             logger.warning(f"Could not parse date: {date_str}")

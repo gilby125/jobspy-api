@@ -1,0 +1,237 @@
+{
+  "batch_name": "Remote US Jobs - Hourly Duplicate Testing",
+  "description": "Hourly searches for remote jobs in the US to test duplicate tracking across job platforms",
+  "searches": [
+    {
+      "name": "Remote Software Engineer - All Sites",
+      "search_term": "software engineer",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 40,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Frontend Developer - All Sites", 
+      "search_term": "frontend developer",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 35,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Backend Developer - All Sites",
+      "search_term": "backend developer", 
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 35,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Full Stack Developer - All Sites",
+      "search_term": "full stack developer",
+      "location": "Remote", 
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 40,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Python Developer - All Sites",
+      "search_term": "python developer",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"], 
+      "country_indeed": "USA",
+      "results_wanted": 30,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote JavaScript Developer - All Sites",
+      "search_term": "javascript developer",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA", 
+      "results_wanted": 30,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Data Scientist - All Sites",
+      "search_term": "data scientist",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 35,
+      "recurring": true, 
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Machine Learning Engineer - All Sites",
+      "search_term": "machine learning engineer",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 25,
+      "recurring": true,
+      "recurring_interval": "hourly", 
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote DevOps Engineer - All Sites",
+      "search_term": "devops engineer",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 30,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Product Manager - All Sites",
+      "search_term": "product manager", 
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 30,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote UI/UX Designer - All Sites",
+      "search_term": "ui ux designer",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 25,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Data Engineer - All Sites", 
+      "search_term": "data engineer",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 30,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote React Developer - Indeed Only",
+      "search_term": "react developer",
+      "location": "Remote", 
+      "site_names": ["indeed"],
+      "country_indeed": "USA",
+      "results_wanted": 25,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote React Developer - LinkedIn Only",
+      "search_term": "react developer",
+      "location": "Remote",
+      "site_names": ["linkedin"],
+      "country_indeed": "USA",
+      "results_wanted": 25,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote React Developer - Glassdoor Only",
+      "search_term": "react developer",
+      "location": "Remote",
+      "site_names": ["glassdoor"],
+      "country_indeed": "USA", 
+      "results_wanted": 25,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Node.js Developer - Indeed Only",
+      "search_term": "node.js developer",
+      "location": "Remote",
+      "site_names": ["indeed"],
+      "country_indeed": "USA",
+      "results_wanted": 20,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Node.js Developer - LinkedIn Only",
+      "search_term": "node.js developer",
+      "location": "Remote",
+      "site_names": ["linkedin"],
+      "country_indeed": "USA",
+      "results_wanted": 20,
+      "recurring": true,
+      "recurring_interval": "hourly", 
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Node.js Developer - Glassdoor Only",
+      "search_term": "node.js developer",
+      "location": "Remote",
+      "site_names": ["glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 20,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Tech Jobs - Broad Search",
+      "search_term": "software",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 50,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Engineering Jobs - Broad Search",
+      "search_term": "engineer",
+      "location": "Remote", 
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 45,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    },
+    {
+      "name": "Remote Developer Jobs - Broad Search",
+      "search_term": "developer",
+      "location": "Remote",
+      "site_names": ["indeed", "linkedin", "glassdoor"],
+      "country_indeed": "USA",
+      "results_wanted": 50,
+      "recurring": true,
+      "recurring_interval": "hourly",
+      "job_type": "fulltime"
+    }
+  ]
+}

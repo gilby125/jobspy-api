@@ -29,23 +29,20 @@ async def execute_scheduled_search(search_id: str, search_params: dict, db: Sess
         # Update search status to running
         await admin_service.update_search_status(search_id, SearchStatus.RUNNING)
         
-        # Create ScrapingRun record using actual database schema
+        # Create ScrapingRun record using tracking schema
         from sqlalchemy import text
         result = db.execute(text("""
-            INSERT INTO scraping_runs (source_platform, search_terms, locations, start_time, status, jobs_found, jobs_processed, jobs_skipped, error_count, config_used)
-            VALUES (:source_platform, :search_terms, :locations, :start_time, :status, :jobs_found, :jobs_processed, :jobs_skipped, :error_count, :config_used)
+            INSERT INTO scraping_runs (source_site, search_params, status, jobs_found, jobs_new, jobs_updated, started_at)
+            VALUES (:source_site, :search_params, :status, :jobs_found, :jobs_new, :jobs_updated, :started_at)
             RETURNING id
         """), {
-            "source_platform": ",".join(search_params.get("site_names", ["indeed"])),
-            "search_terms": [search_params.get("search_term", "")],
-            "locations": [search_params.get("location", "")],
-            "start_time": datetime.now(),
+            "source_site": ",".join(search_params.get("site_names", ["indeed"])),
+            "search_params": search_params,
             "status": "running",
             "jobs_found": 0,
-            "jobs_processed": 0,
-            "jobs_skipped": 0,
-            "error_count": 0,
-            "config_used": search_params
+            "jobs_new": 0,
+            "jobs_updated": 0,
+            "started_at": datetime.now()
         })
         scraping_run_id = result.fetchone()[0]
         db.commit()
@@ -60,17 +57,27 @@ async def execute_scheduled_search(search_id: str, search_params: dict, db: Sess
         })
         
         jobs_found = len(jobs_df) if not jobs_df.empty else 0
+        jobs_new = 0
+        
+        # Save jobs to database if any were found
+        if jobs_found > 0:
+            save_stats = await JobService.save_jobs_to_database(jobs_df, {
+                "site_name": search_params.get("site_names", ["indeed"]),
+                "search_term": search_params.get("search_term"),
+                "location": search_params.get("location")
+            }, db)
+            jobs_new = save_stats.get("new_jobs", 0)
         
         # Update scraping run with results
         db.execute(text("""
             UPDATE scraping_runs 
-            SET status = :status, end_time = :end_time, jobs_found = :jobs_found, jobs_processed = :jobs_processed
+            SET status = :status, completed_at = :completed_at, jobs_found = :jobs_found, jobs_new = :jobs_new
             WHERE id = :id
         """), {
             "status": "completed",
-            "end_time": datetime.now(),
+            "completed_at": datetime.now(),
             "jobs_found": jobs_found,
-            "jobs_processed": jobs_found,
+            "jobs_new": jobs_new,
             "id": scraping_run_id
         })
         db.commit()
@@ -88,12 +95,12 @@ async def execute_scheduled_search(search_id: str, search_params: dict, db: Sess
             if 'scraping_run_id' in locals():
                 db.execute(text("""
                     UPDATE scraping_runs 
-                    SET status = :status, end_time = :end_time, error_details = :error_details
+                    SET status = :status, completed_at = :completed_at, error_message = :error_message
                     WHERE id = :id
                 """), {
                     "status": "failed",
-                    "end_time": datetime.now(),
-                    "error_details": {"error": str(e)},
+                    "completed_at": datetime.now(),
+                    "error_message": str(e),
                     "id": scraping_run_id
                 })
                 db.commit()
@@ -4607,18 +4614,24 @@ async def get_job_details(
     try:
         job_sql = """
             SELECT 
-                jp.id, jp.external_id, jp.title, jp.description, jp.requirements,
+                jp.id, jp.job_hash, jp.title, jp.description, jp.requirements,
                 jp.job_type, jp.experience_level, jp.salary_min, jp.salary_max, 
-                jp.salary_currency, jp.salary_interval, jp.is_remote, jp.easy_apply,
-                jp.job_url, jp.application_url, jp.source_platform, jp.date_posted,
-                jp.date_scraped, jp.last_seen, jp.skills, jp.metadata,
-                c.name as company_name, c.domain as company_domain,
-                c.industry, c.company_size, c.headquarters_location,
-                CONCAT_WS(', ', l.city, l.state, l.country) as location
+                jp.salary_currency, jp.salary_interval, jp.is_remote, jp.status,
+                jp.first_seen_at, jp.last_seen_at, jp.created_at, jp.updated_at,
+                c.name as company_name, c.description as company_description,
+                c.industry, c.domain as company_domain, c.logo_url,
+                CONCAT_WS(', ', l.city, l.state, l.country) as location,
+                jm.total_seen_count, jm.sites_posted_count, jm.days_active, 
+                jm.repost_count, jm.last_activity_date,
+                STRING_AGG(DISTINCT js.source_site, ', ') as source_sites,
+                STRING_AGG(DISTINCT js.job_url, ', ') as job_urls
             FROM job_postings jp
             LEFT JOIN companies c ON jp.company_id = c.id
             LEFT JOIN locations l ON jp.location_id = l.id
+            LEFT JOIN job_metrics jm ON jp.id = jm.job_posting_id
+            LEFT JOIN job_sources js ON jp.id = js.job_posting_id
             WHERE jp.id = :job_id
+            GROUP BY jp.id, c.id, l.id, jm.id
         """
         
         result = db.execute(text(job_sql), {"job_id": job_id})
@@ -4629,13 +4642,13 @@ async def get_job_details(
         
         return {
             "id": row.id,
-            "external_id": row.external_id,
+            "job_hash": row.job_hash,
             "title": row.title,
             "company_name": row.company_name,
             "company_domain": row.company_domain,
+            "company_description": row.company_description,
             "company_industry": row.industry,
-            "company_size": row.company_size,
-            "company_headquarters": row.headquarters_location,
+            "company_logo": row.logo_url,
             "location": row.location,
             "description": row.description,
             "requirements": row.requirements,
@@ -4646,15 +4659,18 @@ async def get_job_details(
             "salary_currency": row.salary_currency,
             "salary_interval": row.salary_interval,
             "is_remote": row.is_remote,
-            "easy_apply": row.easy_apply,
-            "job_url": row.job_url,
-            "application_url": row.application_url,
-            "source_platform": row.source_platform,
-            "date_posted": row.date_posted.strftime('%Y-%m-%d') if row.date_posted else None,
-            "date_scraped": row.date_scraped.strftime('%Y-%m-%d %H:%M') if row.date_scraped else None,
-            "last_seen": row.last_seen.strftime('%Y-%m-%d %H:%M') if row.last_seen else None,
-            "skills": row.skills,
-            "metadata": row.metadata
+            "status": row.status,
+            "first_seen_at": row.first_seen_at.strftime('%Y-%m-%d %H:%M') if row.first_seen_at else None,
+            "last_seen_at": row.last_seen_at.strftime('%Y-%m-%d %H:%M') if row.last_seen_at else None,
+            "created_at": row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else None,
+            "updated_at": row.updated_at.strftime('%Y-%m-%d %H:%M') if row.updated_at else None,
+            "total_seen_count": row.total_seen_count,
+            "sites_posted_count": row.sites_posted_count,
+            "days_active": row.days_active,
+            "repost_count": row.repost_count,
+            "last_activity_date": row.last_activity_date.strftime('%Y-%m-%d') if row.last_activity_date else None,
+            "source_sites": row.source_sites,
+            "job_urls": row.job_urls
         }
         
     except HTTPException:
@@ -4686,7 +4702,7 @@ async def export_jobs(
         from datetime import datetime, timedelta
         
         # Build WHERE conditions based on filters
-        where_conditions = ["jp.is_active = true"]
+        where_conditions = ["jp.status = 'active'"]
         params = {}
         
         if search:
@@ -4727,26 +4743,30 @@ async def export_jobs(
         
         if days_ago:
             date_cutoff = datetime.now() - timedelta(days=days_ago)
-            where_conditions.append("jp.date_posted >= :date_cutoff")
+            where_conditions.append("jp.first_seen_at >= :date_cutoff")
             params["date_cutoff"] = date_cutoff
         
         where_clause = " AND ".join(where_conditions)
         
         export_sql = f"""
             SELECT 
-                jp.id, jp.external_id, jp.title, jp.description, jp.requirements,
+                jp.id, jp.job_hash, jp.title, jp.description, jp.requirements,
                 jp.job_type, jp.experience_level, jp.salary_min, jp.salary_max, 
-                jp.salary_currency, jp.salary_interval, jp.is_remote, jp.easy_apply,
-                jp.job_url, jp.application_url, jp.source_platform, 
-                jp.date_posted, jp.date_scraped, jp.last_seen, jp.skills,
+                jp.salary_currency, jp.salary_interval, jp.is_remote, jp.status,
+                jp.first_seen_at, jp.last_seen_at, jp.created_at, jp.updated_at,
                 c.name as company_name, c.domain as company_domain,
-                c.industry, c.company_size, c.headquarters_location,
-                CONCAT_WS(', ', l.city, l.state, l.country) as location
+                c.industry, c.description as company_description,
+                CONCAT_WS(', ', l.city, l.state, l.country) as location,
+                jm.total_seen_count, jm.sites_posted_count, jm.days_active,
+                STRING_AGG(DISTINCT js.source_site, ', ') as source_sites
             FROM job_postings jp
             LEFT JOIN companies c ON jp.company_id = c.id
             LEFT JOIN locations l ON jp.location_id = l.id
+            LEFT JOIN job_metrics jm ON jp.id = jm.job_posting_id
+            LEFT JOIN job_sources js ON jp.id = js.job_posting_id
             WHERE {where_clause}
-            ORDER BY jp.date_posted DESC
+            GROUP BY jp.id, c.id, l.id, jm.id
+            ORDER BY jp.first_seen_at DESC
             LIMIT 10000
         """
         
