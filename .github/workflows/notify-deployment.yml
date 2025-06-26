@@ -1,0 +1,50 @@
+name: Deployment Notification
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  notify-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for deployment
+        run: |
+          echo "Waiting for Portainer to pull and deploy..."
+          sleep 60  # Adjust based on your deployment time
+          
+      - name: Check deployment status
+        run: |
+          # Check if your API is responding
+          max_attempts=30
+          attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            if curl -f -s "https://your-domain.com/health" > /dev/null; then
+              echo "✅ Deployment successful! API is responding."
+              break
+            else
+              echo "Attempt $attempt/$max_attempts: API not ready yet..."
+              sleep 10
+              attempt=$((attempt + 1))
+            fi
+          done
+          
+          if [ $attempt -gt $max_attempts ]; then
+            echo "❌ Deployment may have failed - API not responding after 5 minutes"
+            exit 1
+          fi
+          
+      - name: Send notification
+        if: always()
+        run: |
+          # Option 1: Send to Discord webhook (if you have one)
+          # curl -X POST "${{ secrets.DISCORD_WEBHOOK }}" \
+          #   -H "Content-Type: application/json" \
+          #   -d '{"content": "🚀 JobSpy API deployment complete!"}'
+          
+          # Option 2: Send email via curl (if you have SMTP webhook)
+          # curl -X POST "your-email-service-webhook" \
+          #   -d "Deployment of commit ${{ github.sha }} is complete"
+          
+          echo "🚀 Deployment notification would be sent here"
