@@ -970,25 +970,25 @@ async def schedule_search(
         # Create a database record even for failed scheduling
         try:
             result = db.execute(text("""
-                INSERT INTO scraping_runs (source_platform, search_terms, locations, 
-                                         start_time, status, jobs_found, jobs_processed, 
-                                         jobs_skipped, error_count, config_used, error_details)
-                VALUES (:source_platform, ARRAY[:search_term], ARRAY[:location], :start_time, 
-                        :status, :jobs_found, :jobs_processed, :jobs_skipped, 
-                        :error_count, :config_used, :error_details)
+                INSERT INTO scraping_runs (source_site, search_params, 
+                                         started_at, status, jobs_found, error_message)
+                VALUES (:source_site, :search_params, :started_at, 
+                        :status, :jobs_found, :error_message)
                 RETURNING id
             """), {
-                "source_platform": ",".join(request.site_names or ["indeed"]),
-                "search_term": request.search_term or "",
-                "location": request.location or "",
-                "start_time": execution_time,
+                "source_site": ",".join(request.site_names or ["indeed"]),
+                "search_params": {
+                    "search_term": request.search_term or "",
+                    "location": request.location or "",
+                    "site_names": request.site_names or ["indeed"],
+                    "results_wanted": request.results_wanted or 20,
+                    "recurring": request.recurring or False,
+                    "recurring_interval": request.recurring_interval
+                },
+                "started_at": execution_time,
                 "status": "failed",
                 "jobs_found": 0,
-                "jobs_processed": 0,
-                "jobs_skipped": 0,
-                "error_count": 1,
-                "config_used": json.dumps(request.dict(), default=str),
-                "error_details": json.dumps({"error": str(e)})
+                "error_message": str(e)
             })
             failed_search_id = result.fetchone()[0]
             db.commit()
@@ -4029,6 +4029,38 @@ async def admin_analytics(db: Session = Depends(get_db)):
     success_rate = round(((total_searches - failed_searches) / total_searches) * 100) if total_searches > 0 else 100
     avg_results = round(stats.total_jobs_found / total_searches, 1) if total_searches > 0 else 0
     
+    # Get recent searches data
+    try:
+        recent_searches_result = db.execute(text("""
+            SELECT 
+                COALESCE(search_params->>'search_term', 'Unknown') as search_term,
+                COALESCE(search_params->>'location', 'Unknown') as location,
+                source_site,
+                COALESCE(jobs_found, 0) as jobs_found,
+                status,
+                started_at
+            FROM scraping_runs 
+            ORDER BY started_at DESC 
+            LIMIT 10
+        """))
+        recent_searches = recent_searches_result.fetchall()
+    except Exception as e:
+        recent_searches = []
+    
+    # Initialize tracking metrics with defaults
+    duplicate_rate = 0
+    multi_source_jobs = 0
+    
+    # Get tracking schema metrics with safe fallbacks
+    try:
+        # Rollback any pending transaction before starting new queries
+        db.rollback()
+        tracking_stats = await admin_service.get_tracking_stats()
+        duplicate_rate = round((tracking_stats.get('duplicate_jobs', 0) / max(tracking_stats.get('total_jobs', 1), 1)) * 100, 1)
+        multi_source_jobs = tracking_stats.get('multi_source_jobs', 0)
+    except Exception as e:
+        logger.error(f"Error getting tracking stats: {e}")
+    
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -4088,6 +4120,14 @@ async def admin_analytics(db: Session = Depends(get_db)):
                         <div class="metric-value">{active_searches}</div>
                         <div class="metric-label">Active Searches</div>
                     </div>
+                    <div class="metric-card" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                        <div class="metric-value">{duplicate_rate}%</div>
+                        <div class="metric-label">Duplicate Rate</div>
+                    </div>
+                    <div class="metric-card" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+                        <div class="metric-value">{multi_source_jobs}</div>
+                        <div class="metric-label">Multi-Source Jobs</div>
+                    </div>
                 </div>
             </div>
             
@@ -4115,7 +4155,17 @@ async def admin_analytics(db: Session = Depends(get_db)):
                         </tr>
                     </thead>
                     <tbody>
-                        <tr><td colspan="6" style="text-align: center; color: #666;">Loading...</td></tr>
+                        {"".join([
+                            f'''<tr>
+                                <td>{search[0]}</td>
+                                <td>{search[1]}</td>
+                                <td>{search[2]}</td>
+                                <td>{search[3]}</td>
+                                <td><span style="color: {'green' if search[4] == 'completed' else 'orange' if search[4] == 'running' else 'red'}">●</span> {search[4].title()}</td>
+                                <td>{search[5].strftime('%H:%M:%S') if search[5] else 'Unknown'}</td>
+                            </tr>'''
+                            for search in recent_searches
+                        ]) if recent_searches else '<tr><td colspan="6" style="text-align: center; color: #666;">No recent searches found</td></tr>'}
                     </tbody>
                 </table>
             </div>

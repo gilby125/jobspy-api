@@ -98,6 +98,8 @@ class AdminService:
     async def get_tracking_stats(self) -> Dict[str, Any]:
         """Get enhanced tracking statistics using the tracking schema"""
         try:
+            # Ensure clean transaction state
+            self.db.rollback()
             # Total jobs with tracking metrics
             result = self.db.execute(text("SELECT COUNT(*) FROM job_postings WHERE status = 'active'"))
             total_jobs = result.scalar() or 0

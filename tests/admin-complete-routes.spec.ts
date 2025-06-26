@@ -5,9 +5,9 @@ test.describe('JobSpy Admin - Complete Route Coverage', () => {
   test.describe('Dashboard Routes', () => {
     test('should navigate to main dashboard', async ({ page }) => {
       await page.goto('/admin/');
-      await expect(page).toHaveTitle('JobSpy Admin Panel');
-      await expect(page.getByRole('heading', { name: '🔧 JobSpy Admin Panel', level: 1 })).toBeVisible();
-      await expect(page.getByText('Manage job searches, monitor system health, and configure settings')).toBeVisible();
+      await expect(page.locator('#page-title')).toContainText('JobSpy Admin Panel');
+      await expect(page.locator('h1')).toContainText('JobSpy Admin Panel');
+      await expect(page.locator('.subtitle')).toContainText('Manage job searches, monitor system health, and configure settings');
     });
 
     test('should display all navigation links', async ({ page }) => {
@@ -34,257 +34,257 @@ test.describe('JobSpy Admin - Complete Route Coverage', () => {
   test.describe('Scheduler Route (/admin/scheduler)', () => {
     test('should display scheduler interface with controls', async ({ page }) => {
       await page.goto('/admin/scheduler');
-      await expect(page).toHaveTitle('Scheduler - JobSpy Admin');
-      await expect(page.getByRole('heading', { name: '⚙️ JobSpy Scheduler', level: 1 })).toBeVisible();
+      await expect(page.locator('#page-title')).toContainText('Scheduler - JobSpy Admin');
+      await expect(page.locator('h1')).toContainText('JobSpy Scheduler');
 
       // Verify scheduler status section
-      await expect(page.getByRole('heading', { name: 'Scheduler Status', level: 2 })).toBeVisible();
-      await expect(page.getByText('Pending Jobs').first()).toBeVisible();
-      await expect(page.getByText('Active Jobs').first()).toBeVisible();
-      await expect(page.getByText('Scheduler Status').first()).toBeVisible();
-      await expect(page.getByText('Backend Type')).toBeVisible();
+      await expect(page.locator('h2:has-text("Scheduler Status")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Pending Jobs")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Active Jobs")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Scheduler Status")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Backend Type")')).toBeVisible();
 
       // Verify scheduler controls
-      await expect(page.getByRole('heading', { name: 'Scheduler Controls', level: 2 })).toBeVisible();
-      await expect(page.getByRole('button', { name: '▶️ Start Scheduler' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '⏸️ Stop Scheduler' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🔄 Restart Scheduler' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '📊 Refresh Stats' })).toBeVisible();
+      await expect(page.locator('h2:has-text("Scheduler Controls")')).toBeVisible();
+      await expect(page.locator('button:has-text("Start Scheduler")')).toBeVisible();
+      await expect(page.locator('button:has-text("Stop Scheduler")')).toBeVisible();
+      await expect(page.locator('button:has-text("Restart Scheduler")')).toBeVisible();
+      await expect(page.locator('button:has-text("Refresh Stats")')).toBeVisible();
     });
 
     test('should have schedule management features', async ({ page }) => {
       await page.goto('/admin/scheduler');
       
       // Verify schedule management section
-      await expect(page.getByRole('heading', { name: 'Schedule Management', level: 3 })).toBeVisible();
+      await expect(page.locator('h3:has-text("Schedule Management")')).toBeVisible();
       
       // Test status filter
-      const statusFilter = page.getByText('Filter by Status:').locator('..').locator('select');
+      const statusFilter = page.locator('#status-filter');
       await expect(statusFilter).toBeVisible();
       
       // Test limit input
-      const limitInput = page.getByRole('spinbutton').first();
+      const limitInput = page.locator('#limit-input');
       await expect(limitInput).toHaveValue('50');
       
       // Test action buttons
-      await expect(page.getByRole('button', { name: '🔍 Filter' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '❌ Cancel All Pending' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🔄 Retry Failed Jobs' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '📁 Export Schedule' })).toBeVisible();
+      await expect(page.locator('button:has-text("Filter")')).toBeVisible();
+      await expect(page.locator('button:has-text("Cancel All Pending")')).toBeVisible();
+      await expect(page.locator('button:has-text("Retry Failed Jobs")')).toBeVisible();
+      await expect(page.locator('button:has-text("Export Schedule")')).toBeVisible();
     });
 
     test('should display scheduled jobs table and logs', async ({ page }) => {
       await page.goto('/admin/scheduler');
       
       // Verify scheduled jobs section
-      await expect(page.getByRole('heading', { name: 'Scheduled Jobs', level: 2 })).toBeVisible();
-      await expect(page.getByRole('table')).toBeVisible();
+      await expect(page.locator('h2:has-text("Scheduled Jobs")')).toBeVisible();
+      await expect(page.locator('table.scheduled-jobs-table')).toBeVisible();
       
       // Verify table headers
       const headers = ['ID', 'Name', 'Search Term', 'Location', 'Sites', 'Status', 'Scheduled', 'Jobs Found', 'Recurring', 'Actions'];
       for (const header of headers) {
-        await expect(page.getByRole('cell', { name: header })).toBeVisible();
+        await expect(page.locator(`th:has-text("${header}")`)).toBeVisible();
       }
       
       // Verify scheduler logs section
-      await expect(page.getByRole('heading', { name: 'Scheduler Logs', level: 2 })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🔄 Refresh Logs' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🗑️ Clear Logs' })).toBeVisible();
+      await expect(page.locator('h2:has-text("Scheduler Logs")')).toBeVisible();
+      await expect(page.locator('button:has-text("Refresh Logs")')).toBeVisible();
+      await expect(page.locator('button:has-text("Clear Logs")')).toBeVisible();
     });
   });
 
   test.describe('Jobs Database Route (/admin/jobs/page)', () => {
     test('should display jobs database with statistics', async ({ page }) => {
       await page.goto('/admin/jobs/page');
-      await expect(page).toHaveTitle('Jobs Database - JobSpy Admin');
-      await expect(page.getByRole('heading', { name: '💼 Jobs Database', level: 1 })).toBeVisible();
+      await expect(page.locator('#page-title')).toContainText('Jobs Database - JobSpy Admin');
+      await expect(page.locator('h1')).toContainText('Jobs Database');
 
       // Verify database statistics
-      await expect(page.getByRole('heading', { name: 'Database Statistics', level: 2 })).toBeVisible();
-      await expect(page.getByText('Total Jobs').first()).toBeVisible();
-      await expect(page.getByText('Active Jobs').first()).toBeVisible();
-      await expect(page.getByText('Companies').first()).toBeVisible();
-      await expect(page.getByText('Latest Scrape')).toBeVisible();
+      await expect(page.locator('h2:has-text("Database Statistics")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Total Jobs")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Active Jobs")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Companies")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Latest Scrape")')).toBeVisible();
     });
 
     test('should have comprehensive filtering capabilities', async ({ page }) => {
       await page.goto('/admin/jobs/page');
       
       // Verify filters section
-      await expect(page.getByRole('heading', { name: 'Filters & Search', level: 2 })).toBeVisible();
+      await expect(page.locator('h2:has-text("Filters & Search")')).toBeVisible();
       
       // Test search inputs
-      await expect(page.getByRole('textbox', { name: 'Search title, company, or description...' })).toBeVisible();
-      await expect(page.getByRole('textbox', { name: 'Enter location...' })).toBeVisible();
+      await expect(page.locator('#search-input')).toBeVisible();
+      await expect(page.locator('#location-input')).toBeVisible();
       
       // Test dropdown filters
-      await expect(page.getByText('Company:').locator('..').locator('select')).toBeVisible();
-      await expect(page.getByText('Platform:').locator('..').locator('select')).toBeVisible();
-      await expect(page.getByText('Job Type:').locator('..').locator('select')).toBeVisible();
-      await expect(page.getByText('Remote:').locator('..').locator('select')).toBeVisible();
-      await expect(page.getByText('Date Posted:').locator('..').locator('select')).toBeVisible();
-      await expect(page.getByText('Results per page:').locator('..').locator('select')).toBeVisible();
+      await expect(page.locator('#company-filter')).toBeVisible();
+      await expect(page.locator('#platform-filter')).toBeVisible();
+      await expect(page.locator('#job-type-filter')).toBeVisible();
+      await expect(page.locator('#remote-filter')).toBeVisible();
+      await expect(page.locator('#date-posted-filter')).toBeVisible();
+      await expect(page.locator('#results-per-page-filter')).toBeVisible();
       
       // Test salary inputs
-      await expect(page.getByText('Salary Min:').locator('..').locator('input')).toBeVisible();
-      await expect(page.getByText('Salary Max:').locator('..').locator('input')).toBeVisible();
+      await expect(page.locator('#salary-min-input')).toBeVisible();
+      await expect(page.locator('#salary-max-input')).toBeVisible();
       
       // Test action buttons
-      await expect(page.getByRole('button', { name: '🔍 Apply Filters' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🗑️ Clear' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '📊 Export CSV' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '📋 Export JSON' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🔄 Refresh' })).toBeVisible();
+      await expect(page.locator('button:has-text("Apply Filters")')).toBeVisible();
+      await expect(page.locator('button:has-text("Clear")')).toBeVisible();
+      await expect(page.locator('button:has-text("Export CSV")')).toBeVisible();
+      await expect(page.locator('button:has-text("Export JSON")')).toBeVisible();
+      await expect(page.locator('button:has-text("Refresh")')).toBeVisible();
     });
 
     test('should display job listings table', async ({ page }) => {
       await page.goto('/admin/jobs/page');
       
       // Verify job listings section
-      await expect(page.getByText('Job Listings')).toBeVisible();
-      await expect(page.getByRole('table')).toBeVisible();
+      await expect(page.locator('h2:has-text("Job Listings")')).toBeVisible();
+      await expect(page.locator('table.job-listings-table')).toBeVisible();
       
       // Verify table headers
       const headers = ['Title', 'Company', 'Location', 'Salary', 'Type', 'Remote', 'Platform', 'Posted', 'Actions'];
       for (const header of headers) {
-        await expect(page.getByRole('cell', { name: header })).toBeVisible();
+        await expect(page.locator(`th:has-text("${header}")`)).toBeVisible();
       }
       
       // Verify empty state
-      await expect(page.getByRole('heading', { name: 'No jobs found', level: 3 })).toBeVisible();
+      await expect(page.locator('.empty-state h3')).toContainText('No jobs found');
     });
   });
 
   test.describe('Job Browser Route (/admin/jobs/browse)', () => {
     test('should display job browser interface', async ({ page }) => {
       await page.goto('/admin/jobs/browse');
-      await expect(page).toHaveTitle('Job Browser - JobSpy Admin');
-      await expect(page.getByRole('heading', { name: '🔍 Job Browser', level: 1 })).toBeVisible();
-      await expect(page.getByText('Browse and search through available job listings')).toBeVisible();
+      await expect(page.locator('#page-title')).toContainText('Job Browser - JobSpy Admin');
+      await expect(page.locator('h1')).toContainText('Job Browser');
+      await expect(page.locator('.subtitle')).toContainText('Browse and search through available job listings');
     });
 
     test('should have search functionality', async ({ page }) => {
       await page.goto('/admin/jobs/browse');
       
       // Verify search section
-      await expect(page.getByRole('heading', { name: '🔍 Search Jobs', level: 2 })).toBeVisible();
+      await expect(page.locator('h2:has-text("Search Jobs")')).toBeVisible();
       
       // Test search inputs
-      await expect(page.getByRole('textbox', { name: 'Search Term:' })).toBeVisible();
-      await expect(page.getByRole('textbox', { name: 'Location:' })).toBeVisible();
+      await expect(page.locator('#search-term-input')).toBeVisible();
+      await expect(page.locator('#location-input')).toBeVisible();
       
       // Test job sites selection
-      await expect(page.getByRole('listbox', { name: 'Job Sites:' })).toBeVisible();
+      await expect(page.locator('#job-sites-select')).toBeVisible();
       
       // Test dropdown filters
-      await expect(page.getByRole('combobox', { name: 'Job Type:' })).toBeVisible();
-      await expect(page.getByRole('combobox', { name: 'Results:' })).toBeVisible();
-      await expect(page.getByRole('combobox', { name: 'Country:' })).toBeVisible();
+      await expect(page.locator('#job-type-select')).toBeVisible();
+      await expect(page.locator('#results-select')).toBeVisible();
+      await expect(page.locator('#country-select')).toBeVisible();
       
       // Test action buttons
-      await expect(page.getByRole('button', { name: '🔍 Search Jobs' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🗑️ Clear' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '📋 Load Sample' })).toBeVisible();
+      await expect(page.locator('button:has-text("Search Jobs")')).toBeVisible();
+      await expect(page.locator('button:has-text("Clear")')).toBeVisible();
+      await expect(page.locator('button:has-text("Load Sample")')).toBeVisible();
       
       // Verify job listings section
-      await expect(page.getByRole('heading', { name: '📋 Job Listings', level: 2 })).toBeVisible();
+      await expect(page.locator('h2:has-text("Job Listings")')).toBeVisible();
     });
   });
 
   test.describe('Templates Route (/admin/templates)', () => {
     test('should display templates management interface', async ({ page }) => {
       await page.goto('/admin/templates');
-      await expect(page).toHaveTitle('Search Templates - JobSpy Admin');
-      await expect(page.getByRole('heading', { name: '📄 Search Templates', level: 1 })).toBeVisible();
-      await expect(page.getByText('Create and manage reusable job search templates')).toBeVisible();
+      await expect(page.locator('#page-title')).toContainText('Search Templates - JobSpy Admin');
+      await expect(page.locator('h1')).toContainText('Search Templates');
+      await expect(page.locator('.subtitle')).toContainText('Create and manage reusable job search templates');
 
       // Verify template statistics
-      await expect(page.getByRole('heading', { name: '📊 Template Statistics', level: 2 })).toBeVisible();
-      await expect(page.getByText('Total Templates')).toBeVisible();
-      await expect(page.getByText('Recently Used')).toBeVisible();
-      await expect(page.getByText('Most Popular')).toBeVisible();
+      await expect(page.locator('h2:has-text("Template Statistics")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Total Templates")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Recently Used")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Most Popular")')).toBeVisible();
     });
 
     test('should have template creation form', async ({ page }) => {
       await page.goto('/admin/templates');
       
       // Verify template creation section
-      await expect(page.getByRole('heading', { name: '➕ Create New Template', level: 2 })).toBeVisible();
+      await expect(page.locator('h2:has-text("Create New Template")')).toBeVisible();
       
       // Test form inputs
-      await expect(page.getByRole('textbox', { name: 'Template Name:' })).toBeVisible();
-      await expect(page.getByRole('textbox', { name: 'Description:' })).toBeVisible();
-      await expect(page.getByRole('textbox', { name: 'Search Term:' })).toBeVisible();
-      await expect(page.getByRole('textbox', { name: 'Location:' })).toBeVisible();
-      await expect(page.getByRole('textbox', { name: 'Tags (optional):' })).toBeVisible();
+      await expect(page.locator('#template-name-input')).toBeVisible();
+      await expect(page.locator('#description-input')).toBeVisible();
+      await expect(page.locator('#search-term-input')).toBeVisible();
+      await expect(page.locator('#location-input')).toBeVisible();
+      await expect(page.locator('#tags-input')).toBeVisible();
       
       // Test dropdown filters
-      await expect(page.getByRole('listbox', { name: 'Job Sites:' })).toBeVisible();
-      await expect(page.getByRole('combobox', { name: 'Job Type:' })).toBeVisible();
-      await expect(page.getByRole('combobox', { name: 'Remote:' })).toBeVisible();
-      await expect(page.getByRole('combobox', { name: 'Default Results:' })).toBeVisible();
-      await expect(page.getByRole('combobox', { name: 'Country:' })).toBeVisible();
+      await expect(page.locator('#job-sites-select')).toBeVisible();
+      await expect(page.locator('#job-type-select')).toBeVisible();
+      await expect(page.locator('#remote-select')).toBeVisible();
+      await expect(page.locator('#default-results-select')).toBeVisible();
+      await expect(page.locator('#country-select')).toBeVisible();
       
       // Test action buttons
-      await expect(page.getByRole('button', { name: '💾 Save Template' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🗑️ Clear Form' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🧪 Test Template' })).toBeVisible();
+      await expect(page.locator('button:has-text("Save Template")')).toBeVisible();
+      await expect(page.locator('button:has-text("Clear Form")')).toBeVisible();
+      await expect(page.locator('button:has-text("Test Template")')).toBeVisible();
     });
 
     test('should display saved templates section', async ({ page }) => {
       await page.goto('/admin/templates');
       
       // Verify saved templates section
-      await expect(page.getByRole('heading', { name: '📋 Saved Templates', level: 2 })).toBeVisible();
+      await expect(page.locator('h2:has-text("Saved Templates")')).toBeVisible();
       
       // Verify empty state
-      await expect(page.getByRole('heading', { name: 'No templates found', level: 3 })).toBeVisible();
-      await expect(page.getByText('Create your first search template using the form above.')).toBeVisible();
+      await expect(page.locator('.empty-state h3')).toContainText('No templates found');
+      await expect(page.locator('.empty-state p')).toContainText('Create your first search template using the form above.');
     });
   });
 
   test.describe('Analytics Route (/admin/analytics)', () => {
     test('should display analytics dashboard with metrics', async ({ page }) => {
       await page.goto('/admin/analytics');
-      await expect(page).toHaveTitle('Analytics - JobSpy Admin');
-      await expect(page.getByRole('heading', { name: '📈 JobSpy Analytics', level: 1 })).toBeVisible();
-      await expect(page.getByText('Detailed insights into job search performance and trends')).toBeVisible();
+      await expect(page.locator('#page-title')).toContainText('Analytics - JobSpy Admin');
+      await expect(page.locator('h1')).toContainText('JobSpy Analytics');
+      await expect(page.locator('.subtitle')).toContainText('Detailed insights into job search performance and trends');
 
       // Verify key metrics
-      await expect(page.getByRole('heading', { name: 'Key Metrics', level: 2 })).toBeVisible();
-      await expect(page.getByText('Total Searches').first()).toBeVisible();
-      await expect(page.getByText('Success Rate').first()).toBeVisible();
-      await expect(page.getByText('Avg Results per Search')).toBeVisible();
-      await expect(page.getByText('Active Searches').first()).toBeVisible();
+      await expect(page.locator('h2:has-text("Key Metrics")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Total Searches")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Success Rate")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Avg Results per Search")')).toBeVisible();
+      await expect(page.locator('.stat-card:has-text("Active Searches")')).toBeVisible();
     });
 
     test('should display search trends and data tables', async ({ page }) => {
       await page.goto('/admin/analytics');
       
       // Verify search trends section
-      await expect(page.getByRole('heading', { name: 'Search Trends', level: 2 })).toBeVisible();
-      await expect(page.getByText('📊 Search trends chart would appear here')).toBeVisible();
+      await expect(page.locator('h2:has-text("Search Trends")')).toBeVisible();
+      await expect(page.locator('#search-trends-chart')).toBeVisible();
       
       // Verify recent searches table
-      await expect(page.getByRole('heading', { name: 'Recent Searches', level: 2 })).toBeVisible();
-      const recentSearchesTable = page.getByRole('table').first();
+      await expect(page.locator('h2:has-text("Recent Searches")')).toBeVisible();
+      const recentSearchesTable = page.locator('table.recent-searches-table');
       await expect(recentSearchesTable).toBeVisible();
       
       // Verify recent searches headers
       const recentHeaders = ['Search Term', 'Location', 'Site', 'Results', 'Status', 'Time'];
       for (const header of recentHeaders) {
-        await expect(recentSearchesTable.getByRole('cell', { name: header })).toBeVisible();
+        await expect(recentSearchesTable.locator(`th:has-text("${header}")`)).toBeVisible();
       }
       
       // Verify popular search terms table
-      await expect(page.getByRole('heading', { name: 'Popular Search Terms', level: 2 })).toBeVisible();
-      const popularTermsTable = page.getByRole('table').nth(1);
+      await expect(page.locator('h2:has-text("Popular Search Terms")')).toBeVisible();
+      const popularTermsTable = page.locator('table.popular-terms-table');
       await expect(popularTermsTable).toBeVisible();
       
       // Verify popular terms headers
       const popularHeaders = ['Search Term', 'Frequency', 'Avg Results', 'Success Rate'];
       for (const header of popularHeaders) {
-        await expect(popularTermsTable.getByRole('cell', { name: header })).toBeVisible();
+        await expect(popularTermsTable.locator(`th:has-text("${header}")`)).toBeVisible();
       }
     });
 
@@ -292,65 +292,65 @@ test.describe('JobSpy Admin - Complete Route Coverage', () => {
       await page.goto('/admin/analytics');
       
       // Verify some sample data is shown (from the snapshot)
-      await expect(page.getByText('product manager').first()).toBeVisible();
-      await expect(page.getByText('software engineer').first()).toBeVisible();
-      await expect(page.getByText('data scientist').first()).toBeVisible();
-      await expect(page.getByText('marketing manager').first()).toBeVisible();
-      await expect(page.getByText('python developer').first()).toBeVisible();
+      await expect(page.locator('td:has-text("product manager")')).toBeVisible();
+      await expect(page.locator('td:has-text("software engineer")')).toBeVisible();
+      await expect(page.locator('td:has-text("data scientist")')).toBeVisible();
+      await expect(page.locator('td:has-text("marketing manager")')).toBeVisible();
+      await expect(page.locator('td:has-text("python developer")')).toBeVisible();
     });
   });
 
   test.describe('Settings Route (/admin/settings)', () => {
     test('should display settings interface', async ({ page }) => {
       await page.goto('/admin/settings');
-      await expect(page).toHaveTitle('Admin Settings - JobSpy');
-      await expect(page.getByRole('heading', { name: '⚙️ JobSpy Admin Settings', level: 1 })).toBeVisible();
-      await expect(page.getByText('Configure system parameters and preferences')).toBeVisible();
+      await expect(page.locator('#page-title')).toContainText('Admin Settings - JobSpy');
+      await expect(page.locator('h1')).toContainText('JobSpy Admin Settings');
+      await expect(page.locator('.subtitle')).toContainText('Configure system parameters and preferences');
     });
 
     test('should have system configuration sections', async ({ page }) => {
       await page.goto('/admin/settings');
       
       // Verify main configuration section
-      await expect(page.getByRole('heading', { name: 'System Configuration', level: 2 })).toBeVisible();
+      await expect(page.locator('h2:has-text("System Configuration")')).toBeVisible();
       
       // Verify search settings
-      await expect(page.getByRole('heading', { name: 'Search Settings', level: 3 })).toBeVisible();
-      await expect(page.getByText('Max Concurrent Searches:')).toBeVisible();
-      await expect(page.getByText('Default Results per Search:')).toBeVisible();
-      await expect(page.getByText('Default Job Sites:')).toBeVisible();
+      await expect(page.locator('h3:has-text("Search Settings")')).toBeVisible();
+      await expect(page.locator('label:has-text("Max Concurrent Searches:")')).toBeVisible();
+      await expect(page.locator('label:has-text("Default Results per Search:")')).toBeVisible();
+      await expect(page.locator('label:has-text("Default Job Sites:")')).toBeVisible();
       
       // Verify performance settings
-      await expect(page.getByRole('heading', { name: 'Performance Settings', level: 3 })).toBeVisible();
-      await expect(page.getByText('Rate Limit (requests per hour):')).toBeVisible();
-      await expect(page.getByText('Cache Enabled:')).toBeVisible();
-      await expect(page.getByText('Cache Expiry (seconds):')).toBeVisible();
+      await expect(page.locator('h3:has-text("Performance Settings")')).toBeVisible();
+      await expect(page.locator('label:has-text("Rate Limit (requests per hour):")')).toBeVisible();
+      await expect(page.locator('label:has-text("Cache Enabled:")')).toBeVisible();
+      await expect(page.locator('label:has-text("Cache Expiry (seconds):")')).toBeVisible();
       
       // Verify security settings
-      await expect(page.getByRole('heading', { name: 'Security Settings', level: 3 })).toBeVisible();
-      await expect(page.getByText('API Key Authentication:')).toBeVisible();
-      await expect(page.getByText('Maintenance Mode:')).toBeVisible();
+      await expect(page.locator('h3:has-text("Security Settings")')).toBeVisible();
+      await expect(page.locator('label:has-text("API Key Authentication:")')).toBeVisible();
+      await expect(page.locator('label:has-text("Maintenance Mode:")')).toBeVisible();
     });
 
     test('should have functional form controls', async ({ page }) => {
       await page.goto('/admin/settings');
       
       // Test numeric inputs have default values
-      const maxConcurrentInput = page.getByText('Max Concurrent Searches:').locator('..').locator('input');
+      const maxConcurrentInput = page.locator('#max-concurrent-searches-input');
       await expect(maxConcurrentInput).toHaveValue('5');
       
-      const defaultResultsInput = page.getByText('Default Results per Search:').locator('..').locator('input');
+      const defaultResultsInput = page.locator('#default-results-input');
       await expect(defaultResultsInput).toHaveValue('20');
       
-      const rateLimitInput = page.getByText('Rate Limit (requests per hour):').locator('..').locator('input');
+      const rateLimitInput = page.locator('#rate-limit-input');
       await expect(rateLimitInput).toHaveValue('100');
       
-      const cacheExpiryInput = page.getByText('Cache Expiry (seconds):').locator('..').locator('input');
+      const cacheExpiryInput = page.locator('#cache-expiry-input');
       await expect(cacheExpiryInput).toHaveValue('3600');
       
       // Test action buttons
-      await expect(page.getByRole('button', { name: '💾 Save Settings' })).toBeVisible();
-      await expect(page.getByRole('button', { name: '🔄 Reload' })).toBeVisible();
+      await expect(page.locator('button:has-text("Save Settings")')).toBeVisible();
+      await expect(page.locator('button:has-text("Reload")')).toBeVisible();
     });
   });
 
@@ -372,7 +372,7 @@ test.describe('JobSpy Admin - Complete Route Coverage', () => {
         await expect(page).toHaveTitle(route.title);
         
         // Verify navigation is present on each page
-        await expect(page.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible();
+        await expect(page.locator('#main-nav')).toBeVisible();
       }
     });
   });

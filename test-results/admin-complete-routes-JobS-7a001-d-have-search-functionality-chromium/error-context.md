@@ -1,0 +1,118 @@
+# Page snapshot
+
+```yaml
+- heading "🔍 Job Browser" [level=1]
+- paragraph: Browse and search through available job listings
+- link "Dashboard":
+  - /url: /admin/
+- link "Searches":
+  - /url: /admin/searches
+- link "Scheduler":
+  - /url: /admin/scheduler
+- link "Jobs Database":
+  - /url: /admin/jobs/page
+- link "Job Browser":
+  - /url: /admin/jobs/browse
+- link "Templates":
+  - /url: /admin/templates
+- link "Analytics":
+  - /url: /admin/analytics
+- link "Settings":
+  - /url: /admin/settings
+- heading "🔍 Search Jobs" [level=2]
+- text: "Search Term:"
+- textbox "Search Term:"
+- text: "Location:"
+- textbox "Location:"
+- text: "Job Sites:"
+- listbox "Job Sites:":
+  - option "Indeed" [selected]
+  - option "LinkedIn"
+  - option "Glassdoor"
+  - option "ZipRecruiter"
+  - option "Google Jobs"
+- text: "Job Type:"
+- combobox "Job Type:":
+  - option "Any" [selected]
+  - option "Full-time"
+  - option "Part-time"
+  - option "Contract"
+  - option "Internship"
+- text: "Results:"
+- combobox "Results:":
+  - option "10 jobs"
+  - option "20 jobs" [selected]
+  - option "50 jobs"
+  - option "100 jobs"
+- text: "Country:"
+- combobox "Country:":
+  - option "United States" [selected]
+  - option "Canada"
+  - option "United Kingdom"
+  - option "Australia"
+  - option "Germany"
+- button "🔍 Search Jobs"
+- button "🗑️ Clear"
+- button "📋 Load Sample"
+- heading "📋 Job Listings (10 sample jobs)" [level=2]
+- heading "Sr. Software Developer" [level=3]
+- paragraph: Repackify
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $120,000 - $140,000 fulltime 🔗 indeed We're a marketplace startup that is looking for a Lead Developer. You’ll take full ownership of our platforms development, making high\-impact decisions with minimal technical guidance. **Responsibil...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+- heading "Senior Software Development Manager" [level=3]
+- paragraph: Oracle
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $104,955 - $217,183 fulltime 🔗 indeed The Oracle Cloud Infrastructure (OCI) team can provide you the opportunity to build and operate a suite of massive scale, integrated cloud services in a broadly distributed, multi\-tenant cloud enviro...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+- heading "Principal Software Developer (Austin, TX and Nashville, TN only)" [level=3]
+- paragraph: Oracle
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $84,237 - $184,235 fulltime 🔗 indeed As a member of the Security and Identity team, you will be part of a team responsible for the platform used by OCI service teams and external customers to transfer artifacts and data from one region t...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+- heading "Software Engineer 3 (529501447)" [level=3]
+- paragraph: LMG Technology Services LLC
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $91,070 - $131,150 🏠 Remote 🔗 indeed **Hybrid (Must live in Austin TX area)** **I. DESCRIPTION OF SERVICES** Develops software solutions by studying information needs, conferring with users, and studying systems flow, data usage, and ...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+- heading "Integrations Software Developer 2" [level=3]
+- paragraph: Cayuse Holdings
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $49 - $71 fulltime 🏠 Remote 🔗 indeed ***JOB TITLE:*** Integrations Software Developer 2 ***LOCATION*** Austin, TX\- **Hybrid** **(3 days remote/Tuesday \& Thursdays Onsite)** ***SALARY:*** $49\.81 \- $71\.16/hr The Integratio...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+- heading "Principal Software Engineer" [level=3]
+- paragraph: Cloudflare
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $195,913 - $260,043 🔗 indeed **About Us** At Cloudflare, we are on a mission to help build a better Internet. Today the company runs one of the world’s largest networks that powers millions of websites and other Internet propert...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+- heading "DevOps Engineer" [level=3]
+- paragraph: Prolim Global Corporation
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $60 - $70 contract 🔗 indeed * Experience with Agile Scrum and DevOps methodologies **GitHub Administration:** o Manage repositories, branching strategies, and access control. o Automate workflows using GitHub Actions or simil...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+- heading "Software Engineer III - Full Stack" [level=3]
+- paragraph: Indeed
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $155,709 - $207,000 fulltime 🏠 Remote 🔗 indeed **Our Mission** As the world’s number 1 job site\\\*, our mission is to help people get jobs. We strive to cultivate an inclusive and accessible workplace where all people feel comfortable being t...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+- heading "Software Engineer II - Full Stack" [level=3]
+- paragraph: Indeed
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $109,000 - $159,000 fulltime 🏠 Remote 🔗 indeed **Our Mission** As the world’s number 1 job site\\\*, our mission is to help people get jobs. We strive to cultivate an inclusive and accessible workplace where all people feel comfortable being t...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+- heading "Software Engineer III - Staff" [level=3]
+- paragraph: Indeed
+- paragraph: 📍 Austin, TX, US
+- text: 💰 $143,000 - $207,000 fulltime 🏠 Remote 🔗 indeed Our Mission As the world’s number 1 job site\*, our mission is to help people get jobs. We strive to cultivate an inclusive and accessible workplace where all people feel comfortable being themsel...
+- button "🚀 Apply Now"
+- button "👁️ View Details"
+```

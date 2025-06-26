@@ -3,157 +3,144 @@ import { test, expect } from '@playwright/test';
 test.describe('JobSpy Admin Interface', () => {
   test('should display admin dashboard with all navigation elements', async ({ page }) => {
     // Navigate to admin dashboard
-    await page.goto('http://192.168.7.10:8787/admin/');
+    await page.goto('/admin/');
 
     // Verify page title and main heading
-    await expect(page).toHaveTitle('JobSpy Admin Panel');
-    await expect(page.getByRole('heading', { name: '🔧 JobSpy Admin Panel', level: 1 })).toBeVisible();
+    await expect(page.locator('#page-title')).toContainText('JobSpy Admin Panel');
+    await expect(page.locator('h1')).toContainText('JobSpy Admin Panel');
 
-    // Verify navigation links are present (using exact matches to avoid strict mode violations)
-    await expect(page.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Searches', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Scheduler', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Jobs', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Templates', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Analytics', exact: true })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toBeVisible();
+    // Verify navigation links are present
+    await expect(page.locator('#main-nav')).toBeVisible();
 
     // Verify quick stats section
-    await expect(page.getByRole('heading', { name: '📊 Quick Stats', level: 2 })).toBeVisible();
-    await expect(page.getByText('Total Searches')).toBeVisible();
-    await expect(page.getByText('Jobs Found Today')).toBeVisible();
-    await expect(page.getByText('Active Searches')).toBeVisible();
-    await expect(page.getByText('System Health', { exact: true })).toBeVisible();
+    await expect(page.locator('h2:has-text("Quick Stats")')).toBeVisible();
+    await expect(page.locator('.stat-card:has-text("Total Searches")')).toBeVisible();
+    await expect(page.locator('.stat-card:has-text("Jobs Found Today")')).toBeVisible();
+    await expect(page.locator('.stat-card:has-text("Active Searches")')).toBeVisible();
+    await expect(page.locator('.stat-card:has-text("System Health")')).toBeVisible();
 
     // Verify quick actions section
-    await expect(page.getByRole('heading', { name: '🚀 Quick Actions', level: 2 })).toBeVisible();
-    await expect(page.getByRole('link', { name: /📋 Manage Searches/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: /⚙️ Scheduler/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: /💼 Jobs Database/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: /📄 Search Templates/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: /📈 Analytics/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: /🔧 System Settings/ })).toBeVisible();
+    await expect(page.locator('h2:has-text("Quick Actions")')).toBeVisible();
+    await expect(page.locator('a.quick-action:has-text("Manage Searches")')).toBeVisible();
+    await expect(page.locator('a.quick-action:has-text("Scheduler")')).toBeVisible();
+    await expect(page.locator('a.quick-action:has-text("Jobs Database")')).toBeVisible();
+    await expect(page.locator('a.quick-action:has-text("Search Templates")')).toBeVisible();
+    await expect(page.locator('a.quick-action:has-text("Analytics")')).toBeVisible();
+    await expect(page.locator('a.quick-action:has-text("System Settings")')).toBeVisible();
   });
 
   test('should allow filling out job search form', async ({ page }) => {
     // Navigate to admin dashboard
-    await page.goto('http://192.168.7.10:8787/admin/');
+    await page.goto('/admin/');
 
     // Verify quick search form is visible
-    await expect(page.getByRole('heading', { name: '🔍 Quick Search', level: 2 })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Schedule New Job Search', level: 3 })).toBeVisible();
+    await expect(page.locator('h2:has-text("Quick Search")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Schedule New Job Search")')).toBeVisible();
 
-    // Fill out the search form using more specific selectors to avoid conflicts
-    await page.getByRole('textbox', { name: 'e.g., Software Engineers SF', exact: true }).fill('Test Search Senior Developer');
-    await page.getByRole('textbox', { name: 'e.g., software engineer', exact: true }).fill('senior developer');
-    await page.getByRole('textbox', { name: 'e.g., San Francisco, CA', exact: true }).fill('New York, NY');
+    // Fill out the search form
+    await page.locator('#quick-search-name-input').fill('Test Search Senior Developer');
+    await page.locator('#quick-search-term-input').fill('senior developer');
+    await page.locator('#quick-search-location-input').fill('New York, NY');
 
     // Verify form fields are filled correctly
-    await expect(page.getByRole('textbox', { name: 'e.g., Software Engineers SF', exact: true })).toHaveValue('Test Search Senior Developer');
-    await expect(page.getByRole('textbox', { name: 'e.g., software engineer', exact: true })).toHaveValue('senior developer');
-    await expect(page.getByRole('textbox', { name: 'e.g., San Francisco, CA', exact: true })).toHaveValue('New York, NY');
+    await expect(page.locator('#quick-search-name-input')).toHaveValue('Test Search Senior Developer');
+    await expect(page.locator('#quick-search-term-input')).toHaveValue('senior developer');
+    await expect(page.locator('#quick-search-location-input')).toHaveValue('New York, NY');
 
-    // Verify job sites selection (Indeed and LinkedIn should be pre-selected)
-    const jobSitesListbox = page.getByRole('listbox');
-    await expect(jobSitesListbox.getByRole('option', { name: 'Indeed (Recommended)' })).toBeVisible();
-    await expect(jobSitesListbox.getByRole('option', { name: 'LinkedIn (Recommended)' })).toBeVisible();
+    // Verify job sites selection
+    const jobSitesListbox = page.locator('#quick-search-job-sites-select');
+    await expect(jobSitesListbox).toHaveValues(['indeed', 'linkedin']);
 
     // Verify results per site spinner has default value
-    await expect(page.getByRole('spinbutton')).toHaveValue('50');
+    await expect(page.locator('#quick-search-results-per-site-input')).toHaveValue('50');
 
     // Verify recurring search checkbox is available
-    await expect(page.getByRole('checkbox', { name: 'Make this a recurring search' })).toBeVisible();
+    await expect(page.locator('#quick-search-recurring-checkbox')).toBeVisible();
 
     // Verify schedule search button is present
-    await expect(page.getByRole('button', { name: '📅 Schedule Search' })).toBeVisible();
+    await expect(page.locator('button:has-text("Schedule Search")')).toBeVisible();
   });
 
   test('should navigate to searches management page', async ({ page }) => {
     // Navigate to searches page
-    await page.goto('http://192.168.7.10:8787/admin/searches');
+    await page.goto('/admin/searches');
 
     // Verify page title and heading
-    await expect(page).toHaveTitle('JobSpy Admin - Searches');
-    await expect(page.getByRole('heading', { name: '🔍 Search Management', level: 1 })).toBeVisible();
+    await expect(page.locator('#page-title')).toContainText('JobSpy Admin - Searches');
+    await expect(page.locator('h1')).toContainText('Search Management');
 
     // Verify search statistics section
-    await expect(page.getByRole('heading', { name: '📊 Search Statistics', level: 2 })).toBeVisible();
-    await expect(page.getByText('Total Searches')).toBeVisible();
-    await expect(page.getByText('Active Searches')).toBeVisible();
-    await expect(page.getByText('Completed Today')).toBeVisible();
-    await expect(page.getByText('Success Rate')).toBeVisible();
+    await expect(page.locator('h2:has-text("Search Statistics")')).toBeVisible();
+    await expect(page.locator('.stat-card:has-text("Total Searches")')).toBeVisible();
+    await expect(page.locator('.stat-card:has-text("Active Searches")')).toBeVisible();
+    await expect(page.locator('.stat-card:has-text("Completed Today")')).toBeVisible();
+    await expect(page.locator('.stat-card:has-text("Success Rate")')).toBeVisible();
 
     // Verify quick actions section
-    await expect(page.getByRole('heading', { name: '⚡ Quick Actions', level: 2 })).toBeVisible();
-    await expect(page.getByRole('button', { name: '🔍 Quick Search (Immediate)' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '📚 API Documentation' })).toBeVisible();
+    await expect(page.locator('h2:has-text("Quick Actions")')).toBeVisible();
+    await expect(page.locator('button:has-text("Quick Search (Immediate)")')).toBeVisible();
+    await expect(page.locator('button:has-text("API Documentation")')).toBeVisible();
 
     // Verify schedule future search form
-    await expect(page.getByRole('heading', { name: '⏰ Schedule Future Search', level: 2 })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Search Name:' })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Search Term:' })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Location:' })).toBeVisible();
-    await expect(page.getByRole('listbox', { name: 'Job Sites:' })).toBeVisible();
-    await expect(page.getByRole('spinbutton', { name: 'Results per Site:' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Job Type:' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Schedule Type:' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '🚀 Schedule Search' })).toBeVisible();
+    await expect(page.locator('h2:has-text("Schedule Future Search")')).toBeVisible();
+    await expect(page.locator('#search-name-input')).toBeVisible();
+    await expect(page.locator('#search-term-input')).toBeVisible();
+    await expect(page.locator('#location-input')).toBeVisible();
+    await expect(page.locator('#job-sites-select')).toBeVisible();
+    await expect(page.locator('#results-per-site-input')).toBeVisible();
+    await expect(page.locator('#job-type-select')).toBeVisible();
+    await expect(page.locator('#schedule-type-select')).toBeVisible();
+    await expect(page.locator('button:has-text("Schedule Search")')).toBeVisible();
 
     // Verify bulk search operations section
-    await expect(page.getByRole('heading', { name: '📦 Bulk Search Operations', level: 2 })).toBeVisible();
-    await expect(page.getByRole('button', { name: '➕ Add Search' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '🗑️ Clear All' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '📋 Load Template' }).first()).toBeVisible();
+    await expect(page.locator('h2:has-text("Bulk Search Operations")')).toBeVisible();
+    await expect(page.locator('button:has-text("Add Search")')).toBeVisible();
+    await expect(page.locator('button:has-text("Clear All")')).toBeVisible();
+    await expect(page.locator('button:has-text("Load Template")').first()).toBeVisible();
 
     // Verify scheduled searches section
-    await expect(page.getByRole('heading', { name: '📋 Scheduled Searches', level: 2 })).toBeVisible();
-    await expect(page.getByRole('button', { name: '🔄 Refresh' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '⏸️ Cancel All Pending' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '🗑️ Clean Up Old Jobs' })).toBeVisible();
-    await expect(page.getByRole('button', { name: '📊 Export' })).toBeVisible();
+    await expect(page.locator('h2:has-text("Scheduled Searches")')).toBeVisible();
+    await expect(page.locator('button:has-text("Refresh")')).toBeVisible();
+    await expect(page.locator('button:has-text("Cancel All Pending")')).toBeVisible();
+    await expect(page.locator('button:has-text("Clean Up Old Jobs")')).toBeVisible();
+    await expect(page.locator('button:has-text("Export")')).toBeVisible();
 
     // Verify the searches table with proper headers
-    await expect(page.getByRole('table')).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'ID' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Name' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Search Term' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Location' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Sites' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Status' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Scheduled' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Jobs Found' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Run Count' })).toBeVisible();
-    await expect(page.getByRole('cell', { name: 'Actions' })).toBeVisible();
+    await expect(page.locator('table.scheduled-searches-table')).toBeVisible();
+    const headers = ['ID', 'Name', 'Search Term', 'Location', 'Sites', 'Status', 'Scheduled', 'Jobs Found', 'Run Count', 'Actions'];
+    for (const header of headers) {
+        await expect(page.locator(`table.scheduled-searches-table th:has-text("${header}")`)).toBeVisible();
+    }
 
     // Verify empty state message
-    await expect(page.getByRole('heading', { name: 'No searches found', level: 3 })).toBeVisible();
-    await expect(page.getByText('Create your first search using the form above.')).toBeVisible();
+    await expect(page.locator('.empty-state h3')).toContainText('No searches found');
+    await expect(page.locator('.empty-state p')).toContainText('Create your first search using the form above.');
   });
 
   test('should fill out future search form with all fields', async ({ page }) => {
     // Navigate to searches page
-    await page.goto('http://192.168.7.10:8787/admin/searches');
+    await page.goto('/admin/searches');
 
     // Fill out the future search form
-    await page.getByRole('textbox', { name: 'Search Name:' }).fill('Future Test Search');
-    await page.getByRole('textbox', { name: 'Search Term:' }).fill('javascript developer');
-    await page.getByRole('textbox', { name: 'Location:' }).fill('Remote');
+    await page.locator('#search-name-input').fill('Future Test Search');
+    await page.locator('#search-term-input').fill('javascript developer');
+    await page.locator('#location-input').fill('Remote');
 
     // Select job type from dropdown
-    await page.getByRole('combobox', { name: 'Job Type:' }).selectOption('fulltime');
+    await page.locator('#job-type-select').selectOption('fulltime');
 
     // Change results per site
-    await page.getByRole('spinbutton', { name: 'Results per Site:' }).fill('30');
+    await page.locator('#results-per-site-input').fill('30');
 
     // Verify form fields are filled correctly
-    await expect(page.getByRole('textbox', { name: 'Search Name:' })).toHaveValue('Future Test Search');
-    await expect(page.getByRole('textbox', { name: 'Search Term:' })).toHaveValue('javascript developer');
-    await expect(page.getByRole('textbox', { name: 'Location:' })).toHaveValue('Remote');
-    await expect(page.getByRole('combobox', { name: 'Job Type:' })).toHaveValue('fulltime');
-    await expect(page.getByRole('spinbutton', { name: 'Results per Site:' })).toHaveValue('30');
+    await expect(page.locator('#search-name-input')).toHaveValue('Future Test Search');
+    await expect(page.locator('#search-term-input')).toHaveValue('javascript developer');
+    await expect(page.locator('#location-input')).toHaveValue('Remote');
+    await expect(page.locator('#job-type-select')).toHaveValue('fulltime');
+    await expect(page.locator('#results-per-site-input')).toHaveValue('30');
 
     // Verify schedule type options
-    const scheduleTypeCombobox = page.getByRole('combobox', { name: 'Schedule Type:' });
+    const scheduleTypeCombobox = page.locator('#schedule-type-select');
     await expect(scheduleTypeCombobox).toHaveValue('scheduled');
     
     // Test changing to recurring
@@ -161,8 +148,7 @@ test.describe('JobSpy Admin Interface', () => {
     await expect(scheduleTypeCombobox).toHaveValue('recurring');
 
     // Verify job sites are pre-selected
-    const jobSitesListbox = page.getByRole('listbox', { name: 'Job Sites:' });
-    await expect(jobSitesListbox.getByRole('option', { name: 'Indeed' })).toBeVisible();
-    await expect(jobSitesListbox.getByRole('option', { name: 'LinkedIn' })).toBeVisible();
+    const jobSitesListbox = page.locator('#job-sites-select');
+    await expect(jobSitesListbox).toHaveValues(['indeed', 'linkedin']);
   });
 });

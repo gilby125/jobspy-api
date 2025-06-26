@@ -1,0 +1,71 @@
+# Page snapshot
+
+```yaml
+- heading "📈 JobSpy Analytics" [level=1]
+- paragraph: Detailed insights into job search performance and trends
+- link "Dashboard":
+  - /url: /admin/
+- link "Searches":
+  - /url: /admin/searches
+- link "Scheduler":
+  - /url: /admin/scheduler
+- link "Jobs":
+  - /url: /admin/jobs/page
+- link "Templates":
+  - /url: /admin/templates
+- link "Analytics":
+  - /url: /admin/analytics
+- link "Settings":
+  - /url: /admin/settings
+- heading "Key Metrics" [level=2]
+- text: 0 Total Searches 100% Success Rate 0 Avg Results per Search 0 Active Searches
+- heading "Search Trends" [level=2]
+- text: 📊 Search trends chart would appear here Charts showing search volume over time, popular job sites, etc.
+- heading "Recent Searches" [level=2]
+- table:
+  - rowgroup:
+    - row "Search Term Location Site Results Status Time":
+      - cell "Search Term"
+      - cell "Location"
+      - cell "Site"
+      - cell "Results"
+      - cell "Status"
+      - cell "Time"
+  - rowgroup:
+    - row "Loading...":
+      - cell "Loading..."
+- heading "Popular Search Terms" [level=2]
+- table:
+  - rowgroup:
+    - row "Search Term Frequency Avg Results Success Rate":
+      - cell "Search Term"
+      - cell "Frequency"
+      - cell "Avg Results"
+      - cell "Success Rate"
+  - rowgroup:
+    - row "software engineer 15 24 98%":
+      - cell "software engineer"
+      - cell "15"
+      - cell "24"
+      - cell "98%"
+    - row "data scientist 12 18 95%":
+      - cell "data scientist"
+      - cell "12"
+      - cell "18"
+      - cell "95%"
+    - row "product manager 8 22 100%":
+      - cell "product manager"
+      - cell "8"
+      - cell "22"
+      - cell "100%"
+    - row "marketing manager 6 16 92%":
+      - cell "marketing manager"
+      - cell "6"
+      - cell "16"
+      - cell "92%"
+    - row "python developer 5 20 96%":
+      - cell "python developer"
+      - cell "5"
+      - cell "20"
+      - cell "96%"
+```

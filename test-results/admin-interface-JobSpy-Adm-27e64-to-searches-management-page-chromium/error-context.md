@@ -1,0 +1,124 @@
+# Page snapshot
+
+```yaml
+- heading "🔍 Search Management" [level=1]
+- paragraph: Schedule, monitor, and manage job searches
+- link "Dashboard":
+  - /url: /admin/
+- link "Searches":
+  - /url: /admin/searches
+- link "Scheduler":
+  - /url: /admin/scheduler
+- link "Jobs":
+  - /url: /admin/jobs/page
+- link "Templates":
+  - /url: /admin/templates
+- link "Analytics":
+  - /url: /admin/analytics
+- link "Settings":
+  - /url: /admin/settings
+- heading "📊 Search Statistics" [level=2]
+- text: 0 Total Searches 0 Active Searches 0 Completed Today 0% Success Rate
+- heading "⚡ Quick Actions" [level=2]
+- paragraph: "For immediate job searches, use the direct search API:"
+- button "🔍 Quick Search (Immediate)"
+- button "📚 API Documentation"
+- text: Quick Search opens the direct API interface for immediate job searches. Use the scheduler below for future or recurring searches.
+- heading "⏰ Schedule Future Search" [level=2]
+- text: "Search Name:"
+- textbox "Search Name:"
+- text: "Search Term:"
+- textbox "Search Term:"
+- text: "Location:"
+- textbox "Location:"
+- text: "Job Sites:"
+- listbox "Job Sites:":
+  - option "Indeed" [selected]
+  - option "LinkedIn" [selected]
+  - option "Glassdoor"
+  - option "ZipRecruiter"
+  - option "Google Jobs"
+- text: "Results per Site:"
+- spinbutton "Results per Site:": "20"
+- text: "Job Type:"
+- combobox "Job Type:":
+  - option "Any" [selected]
+  - option "Full-time"
+  - option "Part-time"
+  - option "Contract"
+  - option "Internship"
+- text: "Schedule Type:"
+- combobox "Schedule Type:":
+  - option "Schedule for Later" [selected]
+  - option "Recurring"
+- text: "Schedule Time:"
+- textbox "Schedule Time:": 2025-06-26T03:57
+- text: "Description (optional):"
+- textbox "Description (optional):"
+- button "🚀 Schedule Search"
+- button "🗑️ Clear Form"
+- button "📋 Load Template"
+- heading "📦 Bulk Search Operations" [level=2]
+- paragraph: Schedule multiple searches at once with different parameters
+- button "➕ Add Search"
+- button "🗑️ Clear All"
+- button "📋 Load Template"
+- text: "Batch Name:"
+- textbox "Batch Name:"
+- strong: "Search #1"
+- button "Remove"
+- text: "Search Name:"
+- textbox "e.g. Python Remote Jobs"
+- text: "Search Term:"
+- textbox "e.g. Python Developer"
+- text: "Location:"
+- textbox "e.g. San Francisco, CA"
+- text: "Job Sites:"
+- listbox:
+  - option "Indeed" [selected]
+  - option "LinkedIn"
+  - option "Glassdoor"
+  - option "ZipRecruiter"
+  - option "Google Jobs"
+- text: "Results per Site:"
+- spinbutton: "20"
+- text: "Schedule Type:"
+- combobox:
+  - option "Schedule for Later" [selected]
+  - option "Recurring"
+- text: "Schedule Time:"
+- textbox
+- button "🚀 Schedule All Searches"
+- button "👁️ Preview"
+- heading "📋 Scheduled Searches" [level=2]
+- button "🔄 Refresh"
+- button "⏸️ Cancel All Pending"
+- button "🗑️ Clean Up Old Jobs"
+- button "📊 Export"
+- combobox:
+  - option "Active (Pending, Running, Completed)" [selected]
+  - option "All Statuses"
+  - option "Pending"
+  - option "Running"
+  - option "Completed"
+  - option "Failed"
+  - option "Cancelled"
+- table:
+  - rowgroup:
+    - row "ID Name Search Term Location Sites Status Scheduled Jobs Found Run Count Actions":
+      - cell "ID"
+      - cell "Name"
+      - cell "Search Term"
+      - cell "Location"
+      - cell "Sites"
+      - cell "Status"
+      - cell "Scheduled"
+      - cell "Jobs Found"
+      - cell "Run Count"
+      - cell "Actions"
+  - rowgroup:
+    - row "No searches found Create your first search using the form above.":
+      - cell "No searches found Create your first search using the form above.":
+        - heading "No searches found" [level=3]
+        - paragraph: Create your first search using the form above.
+```

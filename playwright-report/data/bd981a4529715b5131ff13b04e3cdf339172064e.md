@@ -1,0 +1,73 @@
+# Page snapshot
+
+```yaml
+- heading "📄 Search Templates" [level=1]
+- paragraph: Create and manage reusable job search templates
+- link "Dashboard":
+  - /url: /admin/
+- link "Searches":
+  - /url: /admin/searches
+- link "Scheduler":
+  - /url: /admin/scheduler
+- link "Jobs Database":
+  - /url: /admin/jobs/page
+- link "Job Browser":
+  - /url: /admin/jobs/browse
+- link "Templates":
+  - /url: /admin/templates
+- link "Analytics":
+  - /url: /admin/analytics
+- link "Settings":
+  - /url: /admin/settings
+- heading "📊 Template Statistics" [level=2]
+- text: 0 Total Templates 0 Recently Used None Most Popular
+- heading "➕ Create New Template" [level=2]
+- text: "Template Name:"
+- textbox "Template Name:"
+- text: "Description:"
+- textbox "Description:"
+- text: "Search Term:"
+- textbox "Search Term:"
+- text: "Location:"
+- textbox "Location:"
+- text: "Job Sites:"
+- listbox "Job Sites:":
+  - option "Indeed" [selected]
+  - option "LinkedIn"
+  - option "Glassdoor"
+  - option "ZipRecruiter"
+  - option "Google Jobs"
+- text: "Job Type:"
+- combobox "Job Type:":
+  - option "Any" [selected]
+  - option "Full-time"
+  - option "Part-time"
+  - option "Contract"
+  - option "Internship"
+- text: "Remote:"
+- combobox "Remote:":
+  - option "Any" [selected]
+  - option "Remote Only"
+  - option "On-site Only"
+- text: "Default Results:"
+- combobox "Default Results:":
+  - option "10 jobs"
+  - option "20 jobs" [selected]
+  - option "50 jobs"
+  - option "100 jobs"
+- text: "Country:"
+- combobox "Country:":
+  - option "United States" [selected]
+  - option "Canada"
+  - option "United Kingdom"
+  - option "Australia"
+  - option "Germany"
+- text: "Tags (optional):"
+- textbox "Tags (optional):"
+- button "💾 Save Template"
+- button "🗑️ Clear Form"
+- button "🧪 Test Template"
+- heading "📋 Saved Templates" [level=2]
+- heading "No templates found" [level=3]
+- paragraph: Create your first search template using the form above.
+```

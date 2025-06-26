@@ -1,0 +1,49 @@
+# Page snapshot
+
+```yaml
+- heading "⚙️ JobSpy Admin Settings" [level=1]
+- paragraph: Configure system parameters and preferences
+- link "Dashboard":
+  - /url: /admin/
+- link "Searches":
+  - /url: /admin/searches
+- link "Templates":
+  - /url: /admin/templates
+- link "Analytics":
+  - /url: /admin/analytics
+- link "Settings":
+  - /url: /admin/settings
+- heading "System Configuration" [level=2]
+- heading "Search Settings" [level=3]
+- text: "Max Concurrent Searches:"
+- spinbutton: "5"
+- text: "Default Results per Search:"
+- spinbutton: "20"
+- text: "Default Job Sites:"
+- listbox:
+  - option "Indeed" [selected]
+  - option "LinkedIn" [selected]
+  - option "Glassdoor"
+  - option "ZipRecruiter"
+  - option "Google Jobs"
+- heading "Performance Settings" [level=3]
+- text: "Rate Limit (requests per hour):"
+- spinbutton: "100"
+- text: "Cache Enabled:"
+- combobox:
+  - option "Enabled" [selected]
+  - option "Disabled"
+- text: "Cache Expiry (seconds):"
+- spinbutton: "3600"
+- heading "Security Settings" [level=3]
+- text: "API Key Authentication:"
+- combobox:
+  - option "Enabled"
+  - option "Disabled" [selected]
+- text: "Maintenance Mode:"
+- combobox:
+  - option "Disabled" [selected]
+  - option "Enabled"
+- button "💾 Save Settings"
+- button "🔄 Reload"
+```

@@ -128,11 +128,11 @@ class CeleryScheduler:
                 params["status"] = status
             
             sql = f"""
-                SELECT id, source_platform, search_terms, locations, start_time, end_time,
-                       status, jobs_found, config_used, created_at
+                SELECT id, source_site, search_params, started_at, completed_at,
+                       status, jobs_found, worker_id, created_at
                 FROM scraping_runs 
                 {where_clause}
-                ORDER BY start_time DESC 
+                ORDER BY started_at DESC 
                 LIMIT :limit
             """
             
@@ -142,13 +142,13 @@ class CeleryScheduler:
             searches = []
             for row in rows:
                 try:
-                    # Handle different config_used types (string or already parsed)
-                    if isinstance(row.config_used, str):
-                        config = json.loads(row.config_used)
-                    elif isinstance(row.config_used, dict):
-                        config = row.config_used
-                    elif row.config_used:
-                        config = json.loads(str(row.config_used))
+                    # Handle different search_params types (string or already parsed)
+                    if isinstance(row.search_params, str):
+                        config = json.loads(row.search_params)
+                    elif isinstance(row.search_params, dict):
+                        config = row.search_params
+                    elif row.search_params:
+                        config = json.loads(str(row.search_params))
                     else:
                         config = {}
                 except (json.JSONDecodeError, TypeError, AttributeError):
@@ -160,7 +160,7 @@ class CeleryScheduler:
                     # Count how many completed runs exist for this recurring search name
                     count_sql = """
                         SELECT COUNT(*) FROM scraping_runs 
-                        WHERE config_used::text LIKE :search_pattern 
+                        WHERE search_params::text LIKE :search_pattern 
                         AND status = 'completed'
                     """
                     search_name = config.get("name", "")
@@ -177,8 +177,8 @@ class CeleryScheduler:
                     "site_names": config.get("site_names", []),
                     "status": row.status,
                     "jobs_found": row.jobs_found or 0,
-                    "scheduled_time": row.start_time.isoformat() if row.start_time else None,
-                    "completed_time": row.end_time.isoformat() if row.end_time else None,
+                    "scheduled_time": row.started_at.isoformat() if row.started_at else None,
+                    "completed_time": row.completed_at.isoformat() if row.completed_at else None,
                     "created_at": row.created_at.isoformat() if row.created_at else None,
                     "recurring": config.get("recurring", False),
                     "recurring_interval": config.get("recurring_interval"),

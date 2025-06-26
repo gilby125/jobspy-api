@@ -1,0 +1,61 @@
+# Page snapshot
+
+```yaml
+- heading "⚙️ JobSpy Scheduler" [level=1]
+- paragraph: Manage and monitor job search scheduling
+- link "Dashboard":
+  - /url: /admin/
+- link "Searches":
+  - /url: /admin/searches
+- link "Scheduler":
+  - /url: /admin/scheduler
+- link "Templates":
+  - /url: /admin/templates
+- link "Analytics":
+  - /url: /admin/analytics
+- link "Settings":
+  - /url: /admin/settings
+- heading "Scheduler Status" [level=2]
+- text: 0 Pending Jobs 0 Active Jobs running Scheduler Status celery Backend Type
+- heading "Scheduler Controls" [level=2]
+- button "▶️ Start Scheduler"
+- button "⏸️ Stop Scheduler"
+- button "🔄 Restart Scheduler"
+- button "📊 Refresh Stats"
+- heading "Schedule Management" [level=3]
+- text: "Filter by Status:"
+- combobox:
+  - option "All" [selected]
+  - option "Pending"
+  - option "Running"
+  - option "Completed"
+  - option "Failed"
+  - option "Cancelled"
+- text: "Limit:"
+- spinbutton: "50"
+- button "🔍 Filter"
+- button "❌ Cancel All Pending"
+- button "🔄 Retry Failed Jobs"
+- button "📁 Export Schedule"
+- heading "Scheduled Jobs" [level=2]
+- table:
+  - rowgroup:
+    - row "ID Name Search Term Location Sites Status Scheduled Jobs Found Recurring Actions":
+      - cell "ID"
+      - cell "Name"
+      - cell "Search Term"
+      - cell "Location"
+      - cell "Sites"
+      - cell "Status"
+      - cell "Scheduled"
+      - cell "Jobs Found"
+      - cell "Recurring"
+      - cell "Actions"
+  - rowgroup:
+    - row "Loading...":
+      - cell "Loading..."
+- heading "Scheduler Logs" [level=2]
+- button "🔄 Refresh Logs"
+- button "🗑️ Clear Logs"
+- text: "[6/26/2025, 2:58:35 AM] ERROR: Failed to retrieve database logs: List argument must consist only of tuples or dictionaries [6/26/2025, 2:58:35 AM] ERROR: Error getting database logs: List argument must consist only of tuples or dictionaries [6/26/2025, 2:58:35 AM] INFO: Response req_1750906715.5713546: 200 in 0.0020 seconds [6/26/2025, 2:58:35 AM] INFO: Response req_1750906715.56868: 200 in 0.0035 seconds [6/26/2025, 2:58:35 AM] WARNING: API keys are configured but authentication is disabled. This may lead to unexpected behavior. [6/26/2025, 2:58:35 AM] INFO: Response req_1750906715.568134: 200 in 0.0033 seconds [6/26/2025, 2:58:35 AM] INFO: Response req_1750906711.5423295: 200 in 4.0292 seconds [6/26/2025, 2:58:35 AM] INFO: Request req_1750906715.5713546: GET http://192.168.7.10:8787/admin/jobs/page from 192.168.7.4 [6/26/2025, 2:58:35 AM] INFO: Response req_1750906711.5420194: 200 in 4.0286 seconds [6/26/2025, 2:58:35 AM] INFO: Request req_1750906715.5698693: GET http://192.168.7.10:8787/admin/logs?limit=50 from 192.168.7.4 [6/26/2025, 2:58:35 AM] INFO: Request req_1750906715.5692613: GET http://192.168.7.10:8787/admin/logs?limit=50 from 192.168.7.4 [6/26/2025, 2:58:35 AM] INFO: Request req_1750906715.56868: GET http://192.168.7.10:8787/admin/searches?limit=50 from 192.168.7.4 [6/26/2025, 2:58:35 AM] INFO: Request req_1750906715.568134: GET http://192.168.7.10:8787/admin/searches?limit=50 from 192.168.7.4 [6/26/2025, 2:58:31 AM] INFO: Request req_1750906711.5423295: GET http://192.168.7.10:8787/admin/scheduler/stats from 192.168.7.4 [6/26/2025, 2:58:31 AM] INFO: Request req_1750906711.5420194: GET http://192.168.7.10:8787/admin/scheduler/stats from 192.168.7.4 [6/26/2025, 2:58:31 AM] INFO: Response req_1750906711.2360575: 200 in 0.0067 seconds [6/26/2025, 2:58:31 AM] ERROR: Error getting database logs: List argument must consist only of tuples or dictionaries [6/26/2025, 2:58:31 AM] INFO: Response req_1750906711.2372463: 200 in 0.0013 seconds [6/26/2025, 2:58:31 AM] INFO: Response req_1750906711.2367973: 200 in 0.0015 seconds [6/26/2025, 2:58:31 AM] INFO: Response req_1750906711.2348669: 200 in 0.0028 seconds [6/26/2025, 2:58:31 AM] INFO: Response req_1750906709.1989892: 200 in 2.0385 seconds [6/26/2025, 2:58:31 AM] INFO: Request req_1750906711.2372463: GET http://192.168.7.10:8787/admin/scheduler from 192.168.7.4 [6/26/2025, 2:58:31 AM] INFO: Request req_1750906711.2367973: GET http://192.168.7.10:8787/admin/scheduler from 192.168.7.4 [6/26/2025, 2:58:31 AM] INFO: Request req_1750906711.2360575: GET http://192.168.7.10:8787/admin/logs?limit=50 from 192.168.7.4 [6/26/2025, 2:58:31 AM] INFO: Request req_1750906711.2348669: GET http://192.168.7.10:8787/admin/searches?limit=50 from 192.168.7.4 [6/26/2025, 2:58:29 AM] INFO: Request req_1750906709.1989892: GET http://192.168.7.10:8787/admin/scheduler/stats from 192.168.7.4"
+```

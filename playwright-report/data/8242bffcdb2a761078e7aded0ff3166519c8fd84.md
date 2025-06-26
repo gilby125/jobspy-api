@@ -1,0 +1,90 @@
+# Page snapshot
+
+```yaml
+- heading "🔧 JobSpy Admin Panel" [level=1]
+- paragraph: Manage job searches, monitor system health, and configure settings
+- link "Dashboard":
+  - /url: /admin/
+- link "Searches":
+  - /url: /admin/searches
+- link "Scheduler":
+  - /url: /admin/scheduler
+- link "Jobs":
+  - /url: /admin/jobs/page
+- link "Templates":
+  - /url: /admin/templates
+- link "Analytics":
+  - /url: /admin/analytics
+- link "Settings":
+  - /url: /admin/settings
+- heading "📊 Quick Stats" [level=2]
+- heading "0" [level=3]
+- paragraph: Total Searches
+- heading "0" [level=3]
+- paragraph: Jobs Found Today
+- heading "0" [level=3]
+- paragraph: Active Searches
+- heading "OK" [level=3]
+- paragraph: System Health
+- heading "🏷️ Version Information" [level=2]
+- strong: "Version:"
+- text: 1.1.0
+- strong: "Commit:"
+- text: pending
+- strong: "Branch:"
+- text: main
+- strong: "Deployed:"
+- text: 6/26/2025, 2:58:27 AM
+- strong: "Build:"
+- text: "#9 (2025-06-25T18:00:00Z) |"
+- strong: "Status:"
+- text: running
+- heading "🚀 Quick Actions" [level=2]
+- link "📋 Manage Searches View, schedule, and monitor job searches":
+  - /url: /admin/searches
+  - heading "📋 Manage Searches" [level=3]
+  - paragraph: View, schedule, and monitor job searches
+- link "⚙️ Scheduler Monitor and control job scheduling":
+  - /url: /admin/scheduler
+  - heading "⚙️ Scheduler" [level=3]
+  - paragraph: Monitor and control job scheduling
+- link "💼 Jobs Database Browse and search scraped job postings":
+  - /url: /admin/jobs/page
+  - heading "💼 Jobs Database" [level=3]
+  - paragraph: Browse and search scraped job postings
+- link "📄 Search Templates Create and manage search templates":
+  - /url: /admin/templates
+  - heading "📄 Search Templates" [level=3]
+  - paragraph: Create and manage search templates
+- link "📈 Analytics View detailed analytics and reports":
+  - /url: /admin/analytics
+  - heading "📈 Analytics" [level=3]
+  - paragraph: View detailed analytics and reports
+- link "🔧 System Settings Configure system parameters":
+  - /url: /admin/settings
+  - heading "🔧 System Settings" [level=3]
+  - paragraph: Configure system parameters
+- heading "🔍 Quick Search" [level=2]
+- heading "Schedule New Job Search" [level=3]
+- text: "Search Name:"
+- textbox "e.g., Software Engineers SF"
+- text: "Search Term:"
+- textbox "e.g., software engineer"
+- text: "Location:"
+- textbox "e.g., San Francisco, CA"
+- text: "Job Sites (use reliable sites for better results):"
+- listbox:
+  - option "Indeed (Recommended)" [selected]
+  - option "LinkedIn (Recommended)" [selected]
+  - option "Glassdoor (May be rate limited)"
+  - option "ZipRecruiter (May be rate limited)"
+  - option "Google Jobs (May be rate limited)"
+- text: "Results per Site:"
+- spinbutton: "50"
+- text: "Schedule Time (optional):"
+- textbox
+- text: Leave empty to run immediately, or select a future date/time
+- checkbox "Make this a recurring search"
+- text: Make this a recurring search
+- button "📅 Schedule Search"
+```

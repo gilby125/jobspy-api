@@ -1,0 +1,61 @@
+# Page snapshot
+
+```yaml
+- heading "⚙️ JobSpy Scheduler" [level=1]
+- paragraph: Manage and monitor job search scheduling
+- link "Dashboard":
+  - /url: /admin/
+- link "Searches":
+  - /url: /admin/searches
+- link "Scheduler":
+  - /url: /admin/scheduler
+- link "Templates":
+  - /url: /admin/templates
+- link "Analytics":
+  - /url: /admin/analytics
+- link "Settings":
+  - /url: /admin/settings
+- heading "Scheduler Status" [level=2]
+- text: "- Pending Jobs - Active Jobs - Scheduler Status - Backend Type"
+- heading "Scheduler Controls" [level=2]
+- button "▶️ Start Scheduler"
+- button "⏸️ Stop Scheduler"
+- button "🔄 Restart Scheduler"
+- button "📊 Refresh Stats"
+- heading "Schedule Management" [level=3]
+- text: "Filter by Status:"
+- combobox:
+  - option "All" [selected]
+  - option "Pending"
+  - option "Running"
+  - option "Completed"
+  - option "Failed"
+  - option "Cancelled"
+- text: "Limit:"
+- spinbutton: "50"
+- button "🔍 Filter"
+- button "❌ Cancel All Pending"
+- button "🔄 Retry Failed Jobs"
+- button "📁 Export Schedule"
+- heading "Scheduled Jobs" [level=2]
+- table:
+  - rowgroup:
+    - row "ID Name Search Term Location Sites Status Scheduled Jobs Found Recurring Actions":
+      - cell "ID"
+      - cell "Name"
+      - cell "Search Term"
+      - cell "Location"
+      - cell "Sites"
+      - cell "Status"
+      - cell "Scheduled"
+      - cell "Jobs Found"
+      - cell "Recurring"
+      - cell "Actions"
+  - rowgroup:
+    - row "Loading...":
+      - cell "Loading..."
+- heading "Scheduler Logs" [level=2]
+- button "🔄 Refresh Logs"
+- button "🗑️ Clear Logs"
+- text: Loading logs...
+```

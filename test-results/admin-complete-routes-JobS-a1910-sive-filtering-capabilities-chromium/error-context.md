@@ -1,0 +1,101 @@
+# Page snapshot
+
+```yaml
+- heading "💼 Jobs Database" [level=1]
+- paragraph: Browse and manage scraped job postings
+- link "Dashboard":
+  - /url: /admin/
+- link "Searches":
+  - /url: /admin/searches
+- link "Scheduler":
+  - /url: /admin/scheduler
+- link "Jobs":
+  - /url: /admin/jobs/page
+- link "Templates":
+  - /url: /admin/templates
+- link "Analytics":
+  - /url: /admin/analytics
+- link "Settings":
+  - /url: /admin/settings
+- heading "Database Statistics" [level=2]
+- text: "- Total Jobs - Active Jobs - Companies - Latest Scrape"
+- heading "Filters & Search" [level=2]
+- text: "Search Jobs:"
+- textbox "Search title, company, or description..."
+- text: "Company:"
+- combobox:
+  - option "All Companies" [selected]
+- text: "Location:"
+- textbox "Enter location..."
+- text: "Platform:"
+- combobox:
+  - option "All Platforms" [selected]
+  - option "Indeed"
+  - option "LinkedIn"
+  - option "Glassdoor"
+  - option "ZipRecruiter"
+  - option "Google Jobs"
+- text: "Job Type:"
+- combobox:
+  - option "All Types" [selected]
+  - option "Full-time"
+  - option "Part-time"
+  - option "Contract"
+  - option "Temporary"
+  - option "Internship"
+- text: "Remote:"
+- combobox:
+  - option "All" [selected]
+  - option "Remote Only"
+  - option "On-site Only"
+- text: "Salary Min:"
+- spinbutton
+- text: "Salary Max:"
+- spinbutton
+- text: "Date Posted:"
+- combobox:
+  - option "All Time" [selected]
+  - option "Last 24 hours"
+  - option "Last week"
+  - option "Last month"
+- text: "Sort by:"
+- combobox:
+  - option "Date Scraped" [selected]
+  - option "Date Posted"
+  - option "Job Title"
+  - option "Company"
+  - option "Max Salary"
+  - option "Min Salary"
+- text: "Sort order:"
+- combobox:
+  - option "Newest First" [selected]
+  - option "Oldest First"
+- text: "Results per page:"
+- combobox:
+  - option "25"
+  - option "50" [selected]
+  - option "100"
+  - option "200"
+- button "🔍 Apply Filters"
+- button "🗑️ Clear"
+- button "📊 Export CSV"
+- button "📋 Export JSON"
+- button "🔄 Refresh"
+- heading "Job Listings (Loading...)" [level=2]
+- table:
+  - rowgroup:
+    - row "Title ↕️ Company ↕️ Location ↕️ Salary ↕️ Type Remote Platform Posted ↕️ Date Scraped ↕️ Actions":
+      - cell "Title ↕️"
+      - cell "Company ↕️"
+      - cell "Location ↕️"
+      - cell "Salary ↕️"
+      - cell "Type"
+      - cell "Remote"
+      - cell "Platform"
+      - cell "Posted ↕️"
+      - cell "Date Scraped ↕️"
+      - cell "Actions"
+  - rowgroup:
+    - row "Loading jobs...":
+      - cell "Loading jobs..."
+```
