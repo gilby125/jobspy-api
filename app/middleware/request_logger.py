@@ -81,9 +81,12 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
                 await self._log_request_body(request_id, body)
                 
                 # Need to create a new Request with the body because the original was consumed
+                async def new_receive():
+                    return {"type": "http.request", "body": body}
+                
                 request = Request(
                     scope=request.scope,
-                    receive=self._receive_with_body(body)
+                    receive=new_receive
                 )
             except Exception as e:
                 logger.warning(f"Failed to log request body: {str(e)}")
@@ -142,8 +145,3 @@ class RequestLoggerMiddleware(BaseHTTPMiddleware):
             elif any(sensitive in key.lower() for sensitive in sensitive_fields):
                 data[key] = "********"
     
-    async def _receive_with_body(self, body: bytes):
-        """Create a new receive function that returns the stored body."""
-        async def receive():
-            return {"type": "http.request", "body": body}
-        return receive
