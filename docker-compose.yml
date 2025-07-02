@@ -131,6 +131,12 @@ services:
       - ./logs:/app/logs
     restart: unless-stopped
     command: /bin/bash -c "sleep 30 && cd /app && python -m celery -A app.celery_app worker --loglevel=info --concurrency=2"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import celery; from app.celery_app import celery_app; i = celery_app.control.inspect(); print(\"OK\" if i.active() else \"FAIL\")'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   celery-beat:
     build: .
@@ -155,6 +161,12 @@ services:
       - ./logs:/app/logs
     restart: unless-stopped
     command: /bin/bash -c "sleep 45 && cd /app && python -m celery -A app.celery_app beat --loglevel=info"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'celery.*beat' > /dev/null && echo 'OK' || echo 'FAIL'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   postgres_data:
