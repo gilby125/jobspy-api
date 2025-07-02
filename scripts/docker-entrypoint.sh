@@ -66,7 +66,7 @@ echo "Waiting for database to be ready..."
 python -c "
 import time
 import sys
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from app.core.config import settings
 
 max_retries = 30
@@ -76,7 +76,7 @@ while retry_count < max_retries:
     try:
         engine = create_engine(settings.DATABASE_URL)
         with engine.connect() as conn:
-            conn.execute('SELECT 1')
+            conn.execute(text('SELECT 1'))
         print('✅ Database connection successful')
         break
     except Exception as e:
