@@ -39,12 +39,13 @@ celery_app.conf.update(
     broker_pool_limit=10,
     worker_send_task_events=True,
     task_send_sent_event=True,
-    beat_schedule={
-        'check-pending-searches': {
-            'task': 'app.tasks.check_pending_recurring_searches',
-            'schedule': 60.0,  # Check every minute
-        },
-    },
+    # Temporarily disable scheduled tasks until database schema issues are resolved
+    # beat_schedule={
+    #     'check-pending-searches': {
+    #         'task': 'app.tasks.check_pending_recurring_searches',
+    #         'schedule': 60.0,  # Check every minute
+    #     },
+    # },
 )
 
 # Configure task routing - use default celery queue for simplicity
