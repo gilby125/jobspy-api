@@ -14,10 +14,9 @@ from app.models.admin_models import (
 )
 from app.services.admin_service import AdminService
 
+logger = logging.getLogger(__name__)
 from app.services.job_service import JobService
 from app.services.celery_scheduler import get_celery_scheduler
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -29,20 +28,23 @@ async def execute_scheduled_search(search_id: str, search_params: dict, db: Sess
         # Update search status to running
         await admin_service.update_search_status(search_id, SearchStatus.RUNNING)
         
-        # Create ScrapingRun record using tracking schema
+        # Create ScrapingRun record using actual database schema
         from sqlalchemy import text
         result = db.execute(text("""
-            INSERT INTO scraping_runs (source_site, search_params, status, jobs_found, jobs_new, jobs_updated, started_at)
-            VALUES (:source_site, :search_params, :status, :jobs_found, :jobs_new, :jobs_updated, :started_at)
+            INSERT INTO scraping_runs (source_platform, search_terms, locations, start_time, status, jobs_found, jobs_processed, jobs_skipped, error_count, config_used)
+            VALUES (:source_platform, :search_terms, :locations, :start_time, :status, :jobs_found, :jobs_processed, :jobs_skipped, :error_count, :config_used)
             RETURNING id
         """), {
-            "source_site": ",".join(search_params.get("site_names", ["indeed"])),
-            "search_params": search_params,
+            "source_platform": ",".join(search_params.get("site_names", ["indeed"])),
+            "search_terms": [search_params.get("search_term", "")],
+            "locations": [search_params.get("location", "")],
+            "start_time": datetime.now(),
             "status": "running",
             "jobs_found": 0,
-            "jobs_new": 0,
-            "jobs_updated": 0,
-            "started_at": datetime.now()
+            "jobs_processed": 0,
+            "jobs_skipped": 0,
+            "error_count": 0,
+            "config_used": search_params
         })
         scraping_run_id = result.fetchone()[0]
         db.commit()
@@ -57,27 +59,17 @@ async def execute_scheduled_search(search_id: str, search_params: dict, db: Sess
         })
         
         jobs_found = len(jobs_df) if not jobs_df.empty else 0
-        jobs_new = 0
-        
-        # Save jobs to database if any were found
-        if jobs_found > 0:
-            save_stats = await JobService.save_jobs_to_database(jobs_df, {
-                "site_name": search_params.get("site_names", ["indeed"]),
-                "search_term": search_params.get("search_term"),
-                "location": search_params.get("location")
-            }, db)
-            jobs_new = save_stats.get("new_jobs", 0)
         
         # Update scraping run with results
         db.execute(text("""
             UPDATE scraping_runs 
-            SET status = :status, completed_at = :completed_at, jobs_found = :jobs_found, jobs_new = :jobs_new
+            SET status = :status, end_time = :end_time, jobs_found = :jobs_found, jobs_processed = :jobs_processed
             WHERE id = :id
         """), {
             "status": "completed",
-            "completed_at": datetime.now(),
+            "end_time": datetime.now(),
             "jobs_found": jobs_found,
-            "jobs_new": jobs_new,
+            "jobs_processed": jobs_found,
             "id": scraping_run_id
         })
         db.commit()
@@ -95,12 +87,12 @@ async def execute_scheduled_search(search_id: str, search_params: dict, db: Sess
             if 'scraping_run_id' in locals():
                 db.execute(text("""
                     UPDATE scraping_runs 
-                    SET status = :status, completed_at = :completed_at, error_message = :error_message
+                    SET status = :status, end_time = :end_time, error_details = :error_details
                     WHERE id = :id
                 """), {
                     "status": "failed",
-                    "completed_at": datetime.now(),
-                    "error_message": str(e),
+                    "end_time": datetime.now(),
+                    "error_details": {"error": str(e)},
                     "id": scraping_run_id
                 })
                 db.commit()
@@ -970,25 +962,25 @@ async def schedule_search(
         # Create a database record even for failed scheduling
         try:
             result = db.execute(text("""
-                INSERT INTO scraping_runs (source_site, search_params, 
-                                         started_at, status, jobs_found, error_message)
-                VALUES (:source_site, :search_params, :started_at, 
-                        :status, :jobs_found, :error_message)
+                INSERT INTO scraping_runs (source_platform, search_terms, locations,
+                                         start_time, status, jobs_found, jobs_processed,
+                                         jobs_skipped, error_count, config_used, error_details)
+                VALUES (:source_platform, ARRAY[:search_term], ARRAY[:location], :start_time,
+                        :status, :jobs_found, :jobs_processed, :jobs_skipped,
+                        :error_count, :config_used, :error_details)
                 RETURNING id
             """), {
-                "source_site": ",".join(request.site_names or ["indeed"]),
-                "search_params": {
-                    "search_term": request.search_term or "",
-                    "location": request.location or "",
-                    "site_names": request.site_names or ["indeed"],
-                    "results_wanted": request.results_wanted or 20,
-                    "recurring": request.recurring or False,
-                    "recurring_interval": request.recurring_interval
-                },
-                "started_at": execution_time,
+                "source_platform": ",".join(request.site_names or ["indeed"]),
+                "search_term": request.search_term or "",
+                "location": request.location or "",
+                "start_time": execution_time,
                 "status": "failed",
                 "jobs_found": 0,
-                "error_message": str(e)
+                "jobs_processed": 0,
+                "jobs_skipped": 0,
+                "error_count": 1,
+                "config_used": json.dumps(request.dict(), default=str),
+                "error_details": json.dumps({"error": str(e)})
             })
             failed_search_id = result.fetchone()[0]
             db.commit()
@@ -2928,26 +2920,6 @@ async def admin_jobs():
             .empty-state { text-align: center; padding: 60px 20px; color: #7f8c8d; }
             .empty-state h3 { margin-bottom: 10px; }
             .export-controls { display: flex; gap: 10px; margin-bottom: 20px; }
-            .sortable { cursor: pointer; user-select: none; position: relative; }
-            .sortable:hover { background: #e9ecef; }
-            .sort-indicator { margin-left: 5px; font-size: 0.8em; color: #6c757d; }
-            .sort-indicator::after { content: '↕️'; }
-            .sort-indicator.asc::after { content: '↑'; color: #007bff; }
-            .sort-indicator.desc::after { content: '↓'; color: #007bff; }
-            
-            /* Tracking schema specific styles */
-            .duplicate-job { background-color: #fff3cd; border-left: 4px solid #ffc107; }
-            .duplicate-badge { background: #ffc107; color: #212529; padding: 2px 6px; border-radius: 12px; font-size: 0.75em; font-weight: bold; }
-            .multi-source-badge { background: #17a2b8; color: white; padding: 2px 6px; border-radius: 12px; font-size: 0.75em; font-weight: bold; }
-            .tracking-stat { background: linear-gradient(135deg, #6f42c1, #8e44ad); }
-            .metrics-compact { font-size: 0.8em; color: #6c757d; }
-            .metrics-compact span { display: inline-block; margin-right: 10px; }
-            .sources-container { max-width: 300px; }
-            .source-item { background: #f8f9fa; padding: 5px 8px; margin: 2px; border-radius: 4px; font-size: 0.8em; display: inline-block; }
-            .source-item a { color: #007bff; text-decoration: none; }
-            .source-item a:hover { text-decoration: underline; }
-            .repost-indicator { color: #dc3545; font-weight: bold; font-size: 0.9em; }
-            .days-active-indicator { color: #28a745; font-size: 0.9em; }
         </style>
     </head>
     <body>
@@ -2985,22 +2957,6 @@ async def admin_jobs():
                     <div class="stat-card">
                         <div class="stat-value" id="latest-scrape">-</div>
                         <div class="stat-label">Latest Scrape</div>
-                    </div>
-                    <div class="stat-card tracking-stat">
-                        <div class="stat-value" id="duplicate-jobs">-</div>
-                        <div class="stat-label">Duplicate Jobs</div>
-                    </div>
-                    <div class="stat-card tracking-stat">
-                        <div class="stat-value" id="multi-source-jobs">-</div>
-                        <div class="stat-label">Multi-Source Jobs</div>
-                    </div>
-                    <div class="stat-card tracking-stat">
-                        <div class="stat-value" id="total-sources">-</div>
-                        <div class="stat-label">Total Sources</div>
-                    </div>
-                    <div class="stat-card tracking-stat">
-                        <div class="stat-value" id="deduplication-rate">-</div>
-                        <div class="stat-label">Deduplication Rate</div>
                     </div>
                 </div>
             </div>
@@ -3075,24 +3031,6 @@ async def admin_jobs():
                             </select>
                         </div>
                         <div class="filter-group">
-                            <label>Sort by:</label>
-                            <select id="sort-by">
-                                <option value="first_seen_at">First Seen</option>
-                                <option value="last_seen_at">Last Seen</option>
-                                <option value="title">Job Title</option>
-                                <option value="company_name">Company</option>
-                                <option value="salary_max">Max Salary</option>
-                                <option value="salary_min">Min Salary</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
-                            <label>Sort order:</label>
-                            <select id="sort-order">
-                                <option value="desc">Newest First</option>
-                                <option value="asc">Oldest First</option>
-                            </select>
-                        </div>
-                        <div class="filter-group">
                             <label>Results per page:</label>
                             <select id="page-size">
                                 <option value="25">25</option>
@@ -3124,32 +3062,19 @@ async def admin_jobs():
                     <table id="jobs-table">
                         <thead>
                             <tr>
-                                <th class="sortable" onclick="sortTable('title')" data-sort="title">
-                                    Title <span class="sort-indicator" id="sort-title"></span>
-                                </th>
-                                <th class="sortable" onclick="sortTable('company')" data-sort="company">
-                                    Company <span class="sort-indicator" id="sort-company"></span>
-                                </th>
-                                <th class="sortable" onclick="sortTable('location')" data-sort="location">
-                                    Location <span class="sort-indicator" id="sort-location"></span>
-                                </th>
-                                <th class="sortable" onclick="sortTable('salary_max')" data-sort="salary_max">
-                                    Salary <span class="sort-indicator" id="sort-salary_max"></span>
-                                </th>
+                                <th>Title</th>
+                                <th>Company</th>
+                                <th>Location</th>
+                                <th>Salary</th>
                                 <th>Type</th>
                                 <th>Remote</th>
-                                <th>Sources</th>
-                                <th class="sortable" onclick="sortTable('first_seen_at')" data-sort="first_seen_at">
-                                    First Seen <span class="sort-indicator" id="sort-first_seen_at"></span>
-                                </th>
-                                <th class="sortable" onclick="sortTable('total_seen_count')" data-sort="total_seen_count">
-                                    Tracking Metrics <span class="sort-indicator" id="sort-total_seen_count"></span>
-                                </th>
+                                <th>Platform</th>
+                                <th>Posted</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td colspan="10" style="text-align: center; color: #666;">Loading jobs...</td></tr>
+                            <tr><td colspan="9" style="text-align: center; color: #666;">Loading jobs...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -3211,20 +3136,6 @@ async def admin_jobs():
                         document.getElementById('active-jobs').textContent = stats.active_jobs || '0';
                         document.getElementById('companies-count').textContent = stats.companies_count || '0';
                         document.getElementById('latest-scrape').textContent = stats.latest_scrape || 'Never';
-                        
-                        // New tracking schema metrics
-                        if (document.getElementById('duplicate-jobs')) {
-                            document.getElementById('duplicate-jobs').textContent = stats.duplicate_jobs || '0';
-                        }
-                        if (document.getElementById('multi-source-jobs')) {
-                            document.getElementById('multi-source-jobs').textContent = stats.multi_source_jobs || '0';
-                        }
-                        if (document.getElementById('total-sources')) {
-                            document.getElementById('total-sources').textContent = stats.total_sources || '0';
-                        }
-                        if (document.getElementById('deduplication-rate')) {
-                            document.getElementById('deduplication-rate').textContent = (stats.deduplication_rate || 0) + '%';
-                        }
                     }
                 } catch (error) {
                     console.error('Error loading job stats:', error);
@@ -3264,40 +3175,23 @@ async def admin_jobs():
             function renderJobsTable(jobs) {
                 const tbody = document.querySelector('#jobs-table tbody');
                 
-                // Store current jobs data for sorting
-                currentJobsData = jobs;
-                
                 if (jobs.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><h3>No jobs found</h3><p>Try adjusting your filters or check back after running some searches.</p></td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><h3>No jobs found</h3><p>Try adjusting your filters or check back after running some searches.</p></td></tr>';
                     return;
                 }
 
                 tbody.innerHTML = jobs.map(job => `
-                    <tr class="job-row ${job.is_duplicate ? 'duplicate-job' : ''}" onclick="showJobDetails(${job.id})">
-                        <td class="job-title" title="${job.title}">
-                            ${job.title}
-                            ${job.is_duplicate ? '<span class="duplicate-badge" title="Found on multiple sites">🔄</span>' : ''}
-                            ${job.is_multi_source ? '<span class="multi-source-badge" title="Posted on multiple sites">📍</span>' : ''}
-                        </td>
+                    <tr class="job-row" onclick="showJobDetails(${job.id})">
+                        <td class="job-title" title="${job.title}">${job.title}</td>
                         <td class="company-name" title="${job.company_name || 'Unknown'}">${job.company_name || 'Unknown'}</td>
                         <td class="location" title="${job.location || 'Not specified'}">${job.location || 'Not specified'}</td>
                         <td class="salary">${formatSalary(job.salary_min, job.salary_max, job.salary_currency)}</td>
                         <td>${job.job_type || '-'}</td>
                         <td>${job.is_remote ? '<span class="remote-badge">Remote</span>' : 'On-site'}</td>
-                        <td class="source-sites" title="${job.source_sites || 'Unknown'}">
-                            <span class="sources-count">${job.sites_posted_count || 1} site${(job.sites_posted_count || 1) > 1 ? 's' : ''}</span>
-                            <br><small>${(job.source_sites || '').split(', ').slice(0, 2).join(', ')}${(job.source_sites || '').split(', ').length > 2 ? '...' : ''}</small>
-                        </td>
-                        <td title="${job.first_seen_at}">${formatDate(job.first_seen_at)}</td>
-                        <td class="tracking-metrics" title="Total seen: ${job.total_seen_count || 1}, Days active: ${job.days_active || 0}, Reposts: ${job.repost_count || 0}">
-                            <div class="metrics-compact">
-                                <span class="seen-count">👁 ${job.total_seen_count || 1}</span>
-                                <span class="days-active">📅 ${job.days_active || 0}d</span>
-                                ${(job.repost_count || 0) > 0 ? `<span class="repost-count">🔄 ${job.repost_count}</span>` : ''}
-                            </div>
-                        </td>
+                        <td><span class="platform-badge platform-${job.source_platform}">${job.source_platform}</span></td>
+                        <td title="${job.date_posted}">${formatDate(job.date_posted)}</td>
                         <td>
-                            <button class="btn" onclick="event.stopPropagation(); showJobSources(${job.id})">Sources</button>
+                            <button class="btn" onclick="event.stopPropagation(); window.open('${job.job_url}', '_blank')">View</button>
                         </td>
                     </tr>
                 `).join('');
@@ -3307,84 +3201,13 @@ async def admin_jobs():
                 const tbody = document.querySelector('#jobs-table tbody');
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="10" class="empty-state">
+                        <td colspan="9" class="empty-state">
                             <h3>🔍 No Jobs in Database Yet</h3>
                             <p>Run some job searches from the <a href="/admin/searches">Searches</a> page to populate the database.</p>
                         </td>
                     </tr>
                 `;
                 document.getElementById('job-count').textContent = '(0 jobs)';
-            }
-
-            // Global variables for sorting
-            let currentSort = { column: null, direction: 'asc' };
-            let currentJobsData = [];
-
-            function sortTable(column) {
-                // Toggle sort direction if clicking the same column
-                if (currentSort.column === column) {
-                    currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
-                } else {
-                    currentSort.column = column;
-                    currentSort.direction = 'asc';
-                }
-
-                // Update sort indicators
-                document.querySelectorAll('.sort-indicator').forEach(indicator => {
-                    indicator.className = 'sort-indicator';
-                });
-                
-                const indicator = document.getElementById(`sort-${column}`);
-                if (indicator) {
-                    indicator.className = `sort-indicator ${currentSort.direction}`;
-                }
-
-                // Sort the current jobs data
-                if (currentJobsData.length > 0) {
-                    const sortedJobs = [...currentJobsData].sort((a, b) => {
-                        // Map column names to actual job field names
-                        let fieldName = column;
-                        if (column === 'company') fieldName = 'company_name';
-                        
-                        let valueA = a[fieldName];
-                        let valueB = b[fieldName];
-
-                        // Handle null/undefined values
-                        if (valueA == null) valueA = '';
-                        if (valueB == null) valueB = '';
-
-                        // Special handling for different data types
-                        switch (column) {
-                            case 'salary_max':
-                                valueA = parseFloat(valueA) || 0;
-                                valueB = parseFloat(valueB) || 0;
-                                break;
-                            case 'date_posted':
-                            case 'first_seen_date':
-                                valueA = new Date(valueA);
-                                valueB = new Date(valueB);
-                                break;
-                            case 'title':
-                            case 'company':
-                            case 'location':
-                            default:
-                                valueA = String(valueA).toLowerCase();
-                                valueB = String(valueB).toLowerCase();
-                                break;
-                        }
-
-                        if (valueA < valueB) {
-                            return currentSort.direction === 'asc' ? -1 : 1;
-                        }
-                        if (valueA > valueB) {
-                            return currentSort.direction === 'asc' ? 1 : -1;
-                        }
-                        return 0;
-                    });
-
-                    // Re-render the table with sorted data
-                    renderJobsTable(sortedJobs);
-                }
             }
 
             function renderPagination(totalPages, totalJobs) {
@@ -3470,12 +3293,6 @@ async def admin_jobs():
                 const dateFilter = document.getElementById('date-filter').value;
                 if (dateFilter) currentFilters.days_ago = dateFilter;
                 
-                const sortBy = document.getElementById('sort-by').value;
-                if (sortBy) currentFilters.sort_by = sortBy;
-                
-                const sortOrder = document.getElementById('sort-order').value;
-                if (sortOrder) currentFilters.sort_order = sortOrder;
-                
                 loadJobs(1); // Reset to page 1 when applying filters
             }
 
@@ -3489,8 +3306,6 @@ async def admin_jobs():
                 document.getElementById('salary-min').value = '';
                 document.getElementById('salary-max').value = '';
                 document.getElementById('date-filter').value = '';
-                document.getElementById('sort-by').value = 'first_seen_at';
-                document.getElementById('sort-order').value = 'desc';
                 
                 currentFilters = {};
                 loadJobs(1);
@@ -3546,59 +3361,6 @@ async def admin_jobs():
                 window.open(`/admin/jobs/export?${params}`, '_blank');
             }
 
-            async function showJobSources(jobId) {
-                try {
-                    const response = await authFetch(`/admin/jobs/${jobId}`);
-                    if (response && response.ok) {
-                        const job = await response.json();
-                        
-                        document.getElementById('modal-job-title').textContent = `Sources for: ${job.title}`;
-                        
-                        // Parse source sites and URLs
-                        const sources = job.source_sites ? job.source_sites.split(', ') : [];
-                        const urls = job.job_urls ? job.job_urls.split(', ') : [];
-                        
-                        let sourcesHtml = '<div class="sources-container">';
-                        sources.forEach((source, index) => {
-                            const url = urls[index] || '#';
-                            sourcesHtml += `
-                                <div class="source-item">
-                                    <div class="source-info">
-                                        <span class="platform-badge platform-${source}">${source}</span>
-                                        <div class="source-details">
-                                            <strong>Job URL:</strong> 
-                                            <a href="${url}" target="_blank" class="source-link">${url.length > 50 ? url.substring(0, 50) + '...' : url}</a>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        });
-                        sourcesHtml += '</div>';
-                        
-                        document.getElementById('modal-job-content').innerHTML = `
-                            <div style="margin-bottom: 20px;">
-                                <h3>${job.company_name || 'Unknown Company'}</h3>
-                                <p><strong>Job Hash:</strong> <code>${job.job_hash}</code></p>
-                                <p><strong>Total Sources:</strong> ${job.sites_posted_count || 1}</p>
-                                <p><strong>Total Seen Count:</strong> ${job.total_seen_count || 1}</p>
-                                <p><strong>Repost Count:</strong> ${job.repost_count || 0}</p>
-                                <p><strong>Days Active:</strong> ${job.days_active || 0}</p>
-                                <p><strong>First Seen:</strong> ${formatDate(job.first_seen_at)}</p>
-                                <p><strong>Last Seen:</strong> ${formatDate(job.last_seen_at)}</p>
-                            </div>
-                            
-                            <h4>Sources where this job was found:</h4>
-                            ${sourcesHtml}
-                        `;
-                        
-                        document.getElementById('job-details-modal').style.display = 'block';
-                    }
-                } catch (error) {
-                    console.error('Error loading job sources:', error);
-                    alert('Error loading job sources: ' + error.message);
-                }
-            }
-
             // Close modal when clicking outside
             window.onclick = function(event) {
                 const modal = document.getElementById('job-details-modal');
@@ -3610,15 +3372,6 @@ async def admin_jobs():
             // Load data on page load
             loadJobsStats();
             loadJobs();
-            
-            // Add event listeners for sort controls
-            document.getElementById('sort-by').addEventListener('change', function() {
-                applyFilters(); // Apply all filters including new sort settings
-            });
-            
-            document.getElementById('sort-order').addEventListener('change', function() {
-                applyFilters(); // Apply all filters including new sort settings
-            });
             
             // Auto-refresh every 2 minutes
             setInterval(() => {
@@ -4029,38 +3782,6 @@ async def admin_analytics(db: Session = Depends(get_db)):
     success_rate = round(((total_searches - failed_searches) / total_searches) * 100) if total_searches > 0 else 100
     avg_results = round(stats.total_jobs_found / total_searches, 1) if total_searches > 0 else 0
     
-    # Get recent searches data
-    try:
-        recent_searches_result = db.execute(text("""
-            SELECT 
-                COALESCE(search_params->>'search_term', 'Unknown') as search_term,
-                COALESCE(search_params->>'location', 'Unknown') as location,
-                source_site,
-                COALESCE(jobs_found, 0) as jobs_found,
-                status,
-                started_at
-            FROM scraping_runs 
-            ORDER BY started_at DESC 
-            LIMIT 10
-        """))
-        recent_searches = recent_searches_result.fetchall()
-    except Exception as e:
-        recent_searches = []
-    
-    # Initialize tracking metrics with defaults
-    duplicate_rate = 0
-    multi_source_jobs = 0
-    
-    # Get tracking schema metrics with safe fallbacks
-    try:
-        # Rollback any pending transaction before starting new queries
-        db.rollback()
-        tracking_stats = await admin_service.get_tracking_stats()
-        duplicate_rate = round((tracking_stats.get('duplicate_jobs', 0) / max(tracking_stats.get('total_jobs', 1), 1)) * 100, 1)
-        multi_source_jobs = tracking_stats.get('multi_source_jobs', 0)
-    except Exception as e:
-        logger.error(f"Error getting tracking stats: {e}")
-    
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -4120,14 +3841,6 @@ async def admin_analytics(db: Session = Depends(get_db)):
                         <div class="metric-value">{active_searches}</div>
                         <div class="metric-label">Active Searches</div>
                     </div>
-                    <div class="metric-card" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
-                        <div class="metric-value">{duplicate_rate}%</div>
-                        <div class="metric-label">Duplicate Rate</div>
-                    </div>
-                    <div class="metric-card" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
-                        <div class="metric-value">{multi_source_jobs}</div>
-                        <div class="metric-label">Multi-Source Jobs</div>
-                    </div>
                 </div>
             </div>
             
@@ -4155,17 +3868,7 @@ async def admin_analytics(db: Session = Depends(get_db)):
                         </tr>
                     </thead>
                     <tbody>
-                        {"".join([
-                            f'''<tr>
-                                <td>{search[0]}</td>
-                                <td>{search[1]}</td>
-                                <td>{search[2]}</td>
-                                <td>{search[3]}</td>
-                                <td><span style="color: {'green' if search[4] == 'completed' else 'orange' if search[4] == 'running' else 'red'}">●</span> {search[4].title()}</td>
-                                <td>{search[5].strftime('%H:%M:%S') if search[5] else 'Unknown'}</td>
-                            </tr>'''
-                            for search in recent_searches
-                        ]) if recent_searches else '<tr><td colspan="6" style="text-align: center; color: #666;">No recent searches found</td></tr>'}
+                        <tr><td colspan="6" style="text-align: center; color: #666;">Loading...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -4407,64 +4110,37 @@ async def get_jobs_stats(
     db: Session = Depends(get_db),
     admin_user: dict = Depends(get_admin_user)
 ):
-    """Get jobs database statistics using tracking schema"""
+    """Get jobs database statistics"""
     try:
-        from app.services.job_tracking_service import job_tracking_service
-        
-        # Get total jobs count (tracking schema)
+        # Get total jobs count
         total_jobs_result = db.execute(text("SELECT COUNT(*) FROM job_postings"))
         total_jobs = total_jobs_result.fetchone()[0]
         
-        # Get active jobs count (tracking schema uses status = 'active')
+        # Get active jobs count
         active_jobs_result = db.execute(text("SELECT COUNT(*) FROM job_postings WHERE status = 'active'"))
         active_jobs = active_jobs_result.fetchone()[0]
         
-        # Get companies count (tracking schema)
+        # Get companies count
         companies_result = db.execute(text("SELECT COUNT(*) FROM companies"))
         companies_count = companies_result.fetchone()[0]
         
-        # Get latest scrape time (tracking schema uses first_seen_at)
-        latest_scrape_result = db.execute(text("SELECT MAX(first_seen_at) FROM job_postings"))
+        # Get latest scrape time
+        latest_scrape_result = db.execute(text("SELECT MAX(created_at) FROM job_postings"))
         latest_scrape_row = latest_scrape_result.fetchone()
         latest_scrape = latest_scrape_row[0] if latest_scrape_row and latest_scrape_row[0] else None
-        
-        # Get deduplication stats
-        duplicate_jobs_result = db.execute(text("""
-            SELECT COUNT(*) FROM job_metrics WHERE total_seen_count > 1
-        """))
-        duplicate_jobs = duplicate_jobs_result.fetchone()[0]
-        
-        # Get multi-source jobs count
-        multi_source_result = db.execute(text("""
-            SELECT COUNT(*) FROM job_metrics WHERE sites_posted_count > 1
-        """))
-        multi_source_jobs = multi_source_result.fetchone()[0]
-        
-        # Get total sources count
-        sources_result = db.execute(text("SELECT COUNT(*) FROM job_sources"))
-        total_sources = sources_result.fetchone()[0]
         
         return {
             "total_jobs": total_jobs,
             "active_jobs": active_jobs,
             "companies_count": companies_count,
-            "latest_scrape": latest_scrape.strftime('%Y-%m-%d %H:%M') if latest_scrape else "Never",
-            "duplicate_jobs": duplicate_jobs,
-            "multi_source_jobs": multi_source_jobs,
-            "total_sources": total_sources,
-            "deduplication_rate": round((duplicate_jobs / total_jobs * 100), 1) if total_jobs > 0 else 0
+            "latest_scrape": latest_scrape.strftime('%Y-%m-%d %H:%M') if latest_scrape else "Never"
         }
     except Exception as e:
-        logger.error(f"Error getting jobs stats: {e}")
         return {
             "total_jobs": 0,
             "active_jobs": 0,
             "companies_count": 0,
             "latest_scrape": "Error",
-            "duplicate_jobs": 0,
-            "multi_source_jobs": 0,
-            "total_sources": 0,
-            "deduplication_rate": 0,
             "error": str(e)
         }
 
@@ -4481,38 +4157,13 @@ async def get_jobs(
     salary_min: Optional[int] = Query(None),
     salary_max: Optional[int] = Query(None),
     days_ago: Optional[int] = Query(None),
-    sort_by: str = Query("first_seen_at", description="Sort field: first_seen_at, last_seen_at, title, company_name, salary_min, salary_max"),
-    source_site: Optional[str] = Query(None, description="Filter by source site"),
-    sort_order: str = Query("desc", description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
     admin_user: dict = Depends(get_admin_user)
 ):
-    """Get paginated jobs with filtering using tracking schema"""
+    """Get paginated jobs with filtering"""
     try:
-        # Validate sort parameters for tracking schema
-        valid_sort_fields = {
-            'first_seen_at': 'jp.first_seen_at',
-            'last_seen_at': 'jp.last_seen_at',
-            'title': 'jp.title',
-            'company_name': 'c.name',
-            'salary_min': 'jp.salary_min',
-            'salary_max': 'jp.salary_max'
-        }
-        
-        if sort_by not in valid_sort_fields:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid sort_by field. Valid options: {', '.join(valid_sort_fields.keys())}"
-            )
-        
-        if sort_order not in ['asc', 'desc']:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid sort_order. Valid options: asc, desc"
-            )
-        
         offset = (page - 1) * limit
-        where_conditions = ["jp.status = 'active'"]  # Updated for tracking schema
+        where_conditions = ["jp.status = 'active'"]
         params = {"limit": limit, "offset": offset}
         
         # Build WHERE conditions based on filters
@@ -4532,10 +4183,6 @@ async def get_jobs(
             where_conditions.append("js.source_site = :platform")
             params["platform"] = platform
         
-        if source_site:
-            where_conditions.append("js.source_site = :source_site")
-            params["source_site"] = source_site
-        
         if job_type:
             where_conditions.append("jp.job_type = :job_type")
             params["job_type"] = job_type
@@ -4553,19 +4200,18 @@ async def get_jobs(
             params["salary_max"] = salary_max
         
         if days_ago:
-            where_conditions.append("jp.first_seen_at >= CURRENT_DATE - INTERVAL ':days_ago days'")
+            where_conditions.append("js.post_date >= CURRENT_DATE - INTERVAL ':days_ago days'")
             params["days_ago"] = days_ago
         
         where_clause = " AND ".join(where_conditions)
         
-        # Get total count (with tracking schema joins)
+        # Get total count
         count_sql = f"""
-            SELECT COUNT(DISTINCT jp.id)
+            SELECT COUNT(*)
             FROM job_postings jp
             LEFT JOIN companies c ON jp.company_id = c.id
             LEFT JOIN locations l ON jp.location_id = l.id
             LEFT JOIN job_sources js ON jp.id = js.job_posting_id
-            LEFT JOIN job_metrics jm ON jp.id = jm.job_posting_id
             WHERE {where_clause}
         """
         
@@ -4573,31 +4219,22 @@ async def get_jobs(
         total_jobs = count_result.fetchone()[0]
         total_pages = (total_jobs + limit - 1) // limit
         
-        # Get jobs data with tracking schema features
+        # Get jobs data
         jobs_sql = f"""
-            SELECT DISTINCT
+            SELECT
                 jp.id, jp.job_hash, jp.title, jp.description, jp.requirements,
                 jp.job_type, jp.experience_level, jp.salary_min, jp.salary_max, 
-                jp.salary_currency, jp.salary_interval, jp.is_remote,
-                jp.first_seen_at, jp.last_seen_at, jp.status,
+                jp.salary_currency, jp.salary_interval, jp.is_remote, js.easy_apply,
+                js.job_url, js.apply_url, js.source_site, js.post_date,
+                jp.created_at, jp.updated_at,
                 c.name as company_name, c.domain as company_domain,
-                CONCAT_WS(', ', l.city, l.state, l.country) as location,
-                jm.total_seen_count, jm.sites_posted_count, jm.days_active, jm.repost_count,
-                STRING_AGG(DISTINCT js.source_site, ', ') as source_sites,
-                STRING_AGG(DISTINCT js.job_url, ', ') as job_urls
+                CONCAT_WS(', ', l.city, l.state, l.country) as location
             FROM job_postings jp
             LEFT JOIN companies c ON jp.company_id = c.id
             LEFT JOIN locations l ON jp.location_id = l.id
             LEFT JOIN job_sources js ON jp.id = js.job_posting_id
-            LEFT JOIN job_metrics jm ON jp.id = jm.job_posting_id
             WHERE {where_clause}
-            GROUP BY jp.id, jp.job_hash, jp.title, jp.description, jp.requirements,
-                     jp.job_type, jp.experience_level, jp.salary_min, jp.salary_max,
-                     jp.salary_currency, jp.salary_interval, jp.is_remote,
-                     jp.first_seen_at, jp.last_seen_at, jp.status,
-                     c.name, c.domain, l.city, l.state, l.country,
-                     jm.total_seen_count, jm.sites_posted_count, jm.days_active, jm.repost_count
-            ORDER BY {valid_sort_fields[sort_by]} {sort_order.upper()}
+            ORDER BY jp.created_at DESC
             LIMIT :limit OFFSET :offset
         """
         
@@ -4608,7 +4245,7 @@ async def get_jobs(
         for row in jobs_rows:
             jobs.append({
                 "id": row.id,
-                "job_hash": row.job_hash,
+                "external_id": row.job_hash,
                 "title": row.title,
                 "company_name": row.company_name,
                 "company_domain": row.company_domain,
@@ -4622,18 +4259,14 @@ async def get_jobs(
                 "salary_currency": row.salary_currency,
                 "salary_interval": row.salary_interval,
                 "is_remote": row.is_remote,
-                "status": row.status,
-                "first_seen_at": row.first_seen_at.strftime('%Y-%m-%d %H:%M') if row.first_seen_at else None,
-                "last_seen_at": row.last_seen_at.strftime('%Y-%m-%d %H:%M') if row.last_seen_at else None,
-                "source_sites": row.source_sites,
-                "job_urls": row.job_urls,
-                # Enhanced tracking metrics
-                "total_seen_count": row.total_seen_count or 1,
-                "sites_posted_count": row.sites_posted_count or 1,
-                "days_active": row.days_active or 0,
-                "repost_count": row.repost_count or 0,
-                "is_duplicate": (row.total_seen_count or 1) > 1,
-                "is_multi_source": (row.sites_posted_count or 1) > 1
+                "easy_apply": row.easy_apply,
+                "job_url": row.job_url,
+                "application_url": row.apply_url,
+                "source_platform": row.source_site,
+                "date_posted": row.post_date.strftime('%Y-%m-%d') if row.post_date else None,
+                "date_scraped": row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else None,
+                "skills": None,
+                "metadata": None
             })
         
         return {
@@ -4664,24 +4297,19 @@ async def get_job_details(
     try:
         job_sql = """
             SELECT 
-                jp.id, jp.job_hash, jp.title, jp.description, jp.requirements,
+                jp.id, jp.external_id, jp.title, jp.description, jp.requirements,
                 jp.job_type, jp.experience_level, jp.salary_min, jp.salary_max, 
-                jp.salary_currency, jp.salary_interval, jp.is_remote, jp.status,
-                jp.first_seen_at, jp.last_seen_at, jp.created_at, jp.updated_at,
-                c.name as company_name, c.description as company_description,
-                c.industry, c.domain as company_domain, c.logo_url,
-                CONCAT_WS(', ', l.city, l.state, l.country) as location,
-                jm.total_seen_count, jm.sites_posted_count, jm.days_active, 
-                jm.repost_count, jm.last_activity_date,
-                STRING_AGG(DISTINCT js.source_site, ', ') as source_sites,
-                STRING_AGG(DISTINCT js.job_url, ', ') as job_urls
+                jp.salary_currency, jp.salary_interval, jp.is_remote, jp.easy_apply,
+                jp.job_url, jp.application_url, jp.source_platform, jp.date_posted,
+                jp.created_at, jp.last_seen_at,
+                c.name as company_name, c.domain as company_domain,
+                c.industry, c.company_size, c.headquarters_location,
+                CONCAT_WS(', ', l.city, l.state, l.country) as location
             FROM job_postings jp
             LEFT JOIN companies c ON jp.company_id = c.id
             LEFT JOIN locations l ON jp.location_id = l.id
-            LEFT JOIN job_metrics jm ON jp.id = jm.job_posting_id
             LEFT JOIN job_sources js ON jp.id = js.job_posting_id
             WHERE jp.id = :job_id
-            GROUP BY jp.id, c.id, l.id, jm.id
         """
         
         result = db.execute(text(job_sql), {"job_id": job_id})
@@ -4692,13 +4320,13 @@ async def get_job_details(
         
         return {
             "id": row.id,
-            "job_hash": row.job_hash,
+            "external_id": row.external_id,
             "title": row.title,
             "company_name": row.company_name,
             "company_domain": row.company_domain,
-            "company_description": row.company_description,
             "company_industry": row.industry,
-            "company_logo": row.logo_url,
+            "company_size": row.company_size,
+            "company_headquarters": row.headquarters_location,
             "location": row.location,
             "description": row.description,
             "requirements": row.requirements,
@@ -4709,18 +4337,15 @@ async def get_job_details(
             "salary_currency": row.salary_currency,
             "salary_interval": row.salary_interval,
             "is_remote": row.is_remote,
-            "status": row.status,
-            "first_seen_at": row.first_seen_at.strftime('%Y-%m-%d %H:%M') if row.first_seen_at else None,
-            "last_seen_at": row.last_seen_at.strftime('%Y-%m-%d %H:%M') if row.last_seen_at else None,
-            "created_at": row.created_at.strftime('%Y-%m-%d %H:%M') if row.created_at else None,
-            "updated_at": row.updated_at.strftime('%Y-%m-%d %H:%M') if row.updated_at else None,
-            "total_seen_count": row.total_seen_count,
-            "sites_posted_count": row.sites_posted_count,
-            "days_active": row.days_active,
-            "repost_count": row.repost_count,
-            "last_activity_date": row.last_activity_date.strftime('%Y-%m-%d') if row.last_activity_date else None,
-            "source_sites": row.source_sites,
-            "job_urls": row.job_urls
+            "easy_apply": row.easy_apply,
+            "job_url": row.job_url,
+            "application_url": row.application_url,
+            "source_platform": row.source_platform,
+            "date_posted": row.date_posted.strftime('%Y-%m-%d') if row.date_posted else None,
+            "date_scraped": row.date_scraped.strftime('%Y-%m-%d %H:%M') if row.date_scraped else None,
+            "last_seen": row.last_seen.strftime('%Y-%m-%d %H:%M') if row.last_seen else None,
+            "skills": row.skills,
+            "metadata": row.metadata
         }
         
     except HTTPException:
@@ -4771,10 +4396,6 @@ async def export_jobs(
             where_conditions.append("js.source_site = :platform")
             params["platform"] = platform
         
-        if source_site:
-            where_conditions.append("js.source_site = :source_site")
-            params["source_site"] = source_site
-        
         if job_type:
             where_conditions.append("jp.job_type = :job_type")
             params["job_type"] = job_type
@@ -4793,30 +4414,27 @@ async def export_jobs(
         
         if days_ago:
             date_cutoff = datetime.now() - timedelta(days=days_ago)
-            where_conditions.append("jp.first_seen_at >= :date_cutoff")
+            where_conditions.append("jp.date_posted >= :date_cutoff")
             params["date_cutoff"] = date_cutoff
         
         where_clause = " AND ".join(where_conditions)
         
         export_sql = f"""
             SELECT 
-                jp.id, jp.job_hash, jp.title, jp.description, jp.requirements,
+                jp.id, jp.external_id, jp.title, jp.description, jp.requirements,
                 jp.job_type, jp.experience_level, jp.salary_min, jp.salary_max, 
-                jp.salary_currency, jp.salary_interval, jp.is_remote, jp.status,
-                jp.first_seen_at, jp.last_seen_at, jp.created_at, jp.updated_at,
+                jp.salary_currency, jp.salary_interval, jp.is_remote, jp.easy_apply,
+                jp.job_url, jp.application_url, jp.source_platform,
+                jp.created_at, jp.last_seen_at,
                 c.name as company_name, c.domain as company_domain,
-                c.industry, c.description as company_description,
-                CONCAT_WS(', ', l.city, l.state, l.country) as location,
-                jm.total_seen_count, jm.sites_posted_count, jm.days_active,
-                STRING_AGG(DISTINCT js.source_site, ', ') as source_sites
+                c.industry, c.company_size, c.headquarters_location,
+                CONCAT_WS(', ', l.city, l.state, l.country) as location
             FROM job_postings jp
             LEFT JOIN companies c ON jp.company_id = c.id
             LEFT JOIN locations l ON jp.location_id = l.id
-            LEFT JOIN job_metrics jm ON jp.id = jm.job_posting_id
             LEFT JOIN job_sources js ON jp.id = js.job_posting_id
             WHERE {where_clause}
-            GROUP BY jp.id, c.id, l.id, jm.id
-            ORDER BY jp.first_seen_at DESC
+            ORDER BY jp.date_posted DESC
             LIMIT 10000
         """
         
@@ -4842,7 +4460,7 @@ async def export_jobs(
                     row.id, row.external_id, row.title, row.company_name, row.location,
                     row.job_type, row.experience_level, row.salary_min, row.salary_max,
                     row.salary_currency, row.salary_interval, row.is_remote, row.easy_apply,
-                    row.source_platform, row.date_posted, row.date_scraped,
+                    row.created_at, row.last_seen_at,
                     row.job_url, row.application_url, row.company_domain, row.industry,
                     row.company_size, row.headquarters_location, row.skills,
                     row.description, row.requirements
@@ -4867,7 +4485,7 @@ async def export_jobs(
             for row in rows:
                 jobs_data.append({
                     "id": row.id,
-                    "external_id": row.external_id,
+                    "external_id": row.job_hash,
                     "title": row.title,
                     "company_name": row.company_name,
                     "company_domain": row.company_domain,
@@ -4886,10 +4504,10 @@ async def export_jobs(
                     "is_remote": row.is_remote,
                     "easy_apply": row.easy_apply,
                     "job_url": row.job_url,
-                    "application_url": row.application_url,
-                    "source_platform": row.source_platform,
-                    "date_posted": row.date_posted.strftime('%Y-%m-%d') if row.date_posted else None,
-                    "date_scraped": row.date_scraped.strftime('%Y-%m-%d %H:%M:%S') if row.date_scraped else None,
+                    "application_url": row.apply_url,
+                    "source_platform": row.source_site,
+                    "date_posted": row.post_date.strftime('%Y-%m-%d') if row.post_date else None,
+                    "date_scraped": row.created_at.strftime('%Y-%m-%d %H:%M:%S') if row.created_at else None,
                     "last_seen": row.last_seen.strftime('%Y-%m-%d %H:%M:%S') if row.last_seen else None,
                     "skills": row.skills
                 })

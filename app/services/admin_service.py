@@ -2,7 +2,6 @@ import uuid
 import logging
 import psutil
 import redis
-import json
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
@@ -14,7 +13,6 @@ from app.models.admin_models import (
 )
 from app.cache import cache
 from app.services.log_service import LogService
-from app.services.job_tracking_service import job_tracking_service
 
 
 class AdminService:
@@ -38,7 +36,7 @@ class AdminService:
             
             # Searches today
             result = self.db.execute(text(
-                "SELECT COUNT(*) FROM scraping_runs WHERE started_at >= :today_start"
+                "SELECT COUNT(*) FROM scraping_runs WHERE start_time >= :today_start"
             ), {"today_start": today_start})
             searches_today = result.scalar() or 0
             
@@ -48,13 +46,13 @@ class AdminService:
             ))
             active_searches = result.scalar() or 0
             
-            # Get job posting statistics from tracking schema
+            # Get job posting statistics (check if job_postings table exists)
             try:
-                result = self.db.execute(text("SELECT COUNT(*) FROM job_postings WHERE status = 'active'"))
+                result = self.db.execute(text("SELECT COUNT(*) FROM job_postings"))
                 total_jobs_found = result.scalar() or 0
                 
                 result = self.db.execute(text(
-                    "SELECT COUNT(*) FROM job_postings WHERE first_seen_at >= :today_start AND status = 'active'"
+                    "SELECT COUNT(*) FROM job_postings WHERE created_at >= :today_start"
                 ), {"today_start": today_start})
                 jobs_found_today = result.scalar() or 0
             except Exception:
@@ -72,7 +70,7 @@ class AdminService:
         
         try:
             result = self.db.execute(text(
-                "SELECT COUNT(*) FROM scraping_runs WHERE status = 'failed' AND started_at >= :today_start"
+                "SELECT COUNT(*) FROM scraping_runs WHERE status = 'failed' AND start_time >= :today_start"
             ), {"today_start": today_start})
             failed_searches_today = result.scalar() or 0
         except Exception:
@@ -93,82 +91,6 @@ class AdminService:
             failed_searches_today=failed_searches_today,
             cache_hit_rate=cache_hit_rate,
             system_health=system_health
-        )
-    
-    async def get_tracking_stats(self) -> Dict[str, Any]:
-        """Get enhanced tracking statistics using the tracking schema"""
-        try:
-            # Ensure clean transaction state
-            self.db.rollback()
-            # Total jobs with tracking metrics
-            result = self.db.execute(text("SELECT COUNT(*) FROM job_postings WHERE status = 'active'"))
-            total_jobs = result.scalar() or 0
-            
-            # Active jobs (same as total for tracking schema)
-            active_jobs = total_jobs
-            
-            # Jobs with duplicates (from job_metrics table)
-            result = self.db.execute(text("""
-                SELECT COUNT(DISTINCT jp.id) 
-                FROM job_postings jp 
-                JOIN job_metrics jm ON jp.id = jm.job_posting_id 
-                WHERE jm.total_seen_count > 1 AND jp.status = 'active'
-            """))
-            duplicate_jobs = result.scalar() or 0
-            
-            # Multi-source jobs (jobs found on multiple sites)
-            result = self.db.execute(text("""
-                SELECT COUNT(DISTINCT jp.id) 
-                FROM job_postings jp 
-                JOIN job_metrics jm ON jp.id = jm.job_posting_id 
-                WHERE jm.sites_posted_count > 1 AND jp.status = 'active'
-            """))
-            multi_source_jobs = result.scalar() or 0
-            
-            # Total companies
-            result = self.db.execute(text("SELECT COUNT(*) FROM companies"))
-            total_companies = result.scalar() or 0
-            
-            # Total sources tracked
-            result = self.db.execute(text("SELECT COUNT(DISTINCT source_site) FROM job_sources"))
-            total_sources = result.scalar() or 0
-            
-            # Calculate deduplication rate
-            deduplication_rate = round((duplicate_jobs / total_jobs * 100), 1) if total_jobs > 0 else 0
-            
-            return {
-                "total_jobs": total_jobs,
-                "active_jobs": active_jobs,
-                "duplicate_jobs": duplicate_jobs,
-                "multi_source_jobs": multi_source_jobs,
-                "total_companies": total_companies,
-                "total_sources": total_sources,
-                "deduplication_rate": deduplication_rate
-            }
-        except Exception as e:
-            self.logger.error(f"Error getting tracking stats: {e}")
-            return {
-                "total_jobs": 0,
-                "active_jobs": 0,
-                "duplicate_jobs": 0,
-                "multi_source_jobs": 0,
-                "total_companies": 0,
-                "total_sources": 0,
-                "deduplication_rate": 0
-            }
-    
-    def get_job_analytics(
-        self, 
-        company_id: Optional[int] = None,
-        location_id: Optional[int] = None,
-        days_back: int = 30
-    ) -> Dict[str, Any]:
-        """Get job analytics using the JobTrackingService"""
-        return job_tracking_service.get_job_analytics(
-            db=self.db,
-            company_id=company_id,
-            location_id=location_id,
-            days_back=days_back
         )
     
     async def _check_system_health(self) -> Dict[str, str]:
@@ -214,20 +136,23 @@ class AdminService:
             
             result = self.db.execute(text("""
                 INSERT INTO scraping_runs (
-                    source_site, search_params, started_at, status, 
-                    jobs_found, jobs_new, jobs_updated
+                    source_platform, search_terms, locations, start_time, status,
+                    jobs_found, jobs_processed, jobs_skipped, error_count, config_used
                 ) VALUES (
-                    :source_site, :search_params, :started_at, :status,
-                    :jobs_found, :jobs_new, :jobs_updated
+                    :source_platform, :search_terms, :locations, :start_time, :status,
+                    :jobs_found, :jobs_processed, :jobs_skipped, :error_count, :config_used
                 ) RETURNING id
             """), {
-                "source_site": ",".join(request.site_names),
-                "search_params": json.dumps(request.dict(), default=str),
-                "started_at": scheduled_time,
+                "source_platform": ",".join(request.site_names),
+                "search_terms": search_terms,
+                "locations": locations,
+                "start_time": scheduled_time,
                 "status": SearchStatus.PENDING.value,
                 "jobs_found": 0,
-                "jobs_new": 0,
-                "jobs_updated": 0
+                "jobs_processed": 0,
+                "jobs_skipped": 0,
+                "error_count": 0,
+                "config_used": request.dict()
             })
             
             db_id = result.fetchone()[0]
@@ -263,10 +188,10 @@ class AdminService:
         try:
             # Query actual scraping runs from database
             sql = """
-                SELECT id, source_site, search_params, started_at, completed_at, 
-                       status, jobs_found, jobs_new, created_at
+                SELECT id, source_platform, search_terms, locations, start_time, end_time,
+                       status, jobs_found, config_used, created_at
                 FROM scraping_runs 
-                ORDER BY started_at DESC 
+                ORDER BY start_time DESC
                 LIMIT :limit
             """
             result = self.db.execute(text(sql), {"limit": limit})
@@ -274,10 +199,10 @@ class AdminService:
             
             searches = []
             for row in rows:
-                # Extract search details from search_params JSON
+                # Extract search details from config_used JSON
                 import json
                 try:
-                    config = json.loads(row.search_params) if row.search_params else {}
+                    config = json.loads(row.config_used) if row.config_used else {}
                 except (json.JSONDecodeError, TypeError):
                     config = {}
                 
@@ -286,10 +211,10 @@ class AdminService:
                     name=config.get('name', f"Search {row.id}"),
                     status=SearchStatus.COMPLETED if row.status == 'completed' else SearchStatus.FAILED if row.status == 'failed' else SearchStatus.RUNNING,
                     search_params=config,
-                    created_at=row.created_at or row.started_at,
-                    scheduled_time=row.started_at,
-                    started_at=row.started_at,
-                    completed_at=row.completed_at,
+                    created_at=row.created_at or row.start_time,
+                    scheduled_time=row.start_time,
+                    started_at=row.start_time,
+                    completed_at=row.end_time,
                     jobs_found=row.jobs_found,
                     error_message=None,
                     recurring=False,
@@ -316,8 +241,8 @@ class AdminService:
             search_id_int = int(search_id)
             
             sql = """
-                SELECT id, source_site, search_params, started_at, completed_at, 
-                       status, jobs_found, jobs_new, created_at
+                SELECT id, source_platform, search_terms, locations, start_time, end_time,
+                       status, jobs_found, config_used, created_at
                 FROM scraping_runs 
                 WHERE id = :search_id
             """
@@ -327,10 +252,10 @@ class AdminService:
             if not row:
                 return None
             
-            # Extract search details from search_params JSON
+            # Extract search details from config_used JSON
             import json
             try:
-                config = json.loads(row.search_params) if row.search_params else {}
+                config = json.loads(row.config_used) if row.config_used else {}
             except (json.JSONDecodeError, TypeError):
                 config = {}
             
@@ -348,10 +273,10 @@ class AdminService:
                 name=config.get('name', f"Search {row.id}"),
                 status=status_map.get(row.status, SearchStatus.PENDING),
                 search_params=config,
-                created_at=row.created_at or row.started_at,
-                scheduled_time=row.started_at,
-                started_at=row.started_at,
-                completed_at=row.completed_at,
+                created_at=row.created_at or row.start_time,
+                scheduled_time=row.start_time,
+                started_at=row.start_time,
+                completed_at=row.end_time,
                 jobs_found=row.jobs_found,
                 error_message=None,
                 recurring=config.get('recurring', False),
@@ -374,7 +299,7 @@ class AdminService:
             # Update status in database
             result = self.db.execute(text("""
                 UPDATE scraping_runs 
-                SET status = 'cancelled', completed_at = NOW()
+                SET status = 'cancelled', end_time = NOW()
                 WHERE id = :search_id AND status IN ('pending', 'running')
             """), {"search_id": search_id_int})
             
@@ -406,15 +331,15 @@ class AdminService:
                 # Don't update start_time if already set, but update status
                 pass
             elif status in [SearchStatus.COMPLETED, SearchStatus.FAILED, SearchStatus.CANCELLED]:
-                update_fields.append("completed_at = NOW()")
+                update_fields.append("end_time = NOW()")
             
             if jobs_found is not None:
                 update_fields.append("jobs_found = :jobs_found")
                 params["jobs_found"] = jobs_found
                 
             if error_message:
-                update_fields.append("error_message = :error_message")
-                params["error_message"] = error_message
+                update_fields.append("error_details = :error_details")
+                params["error_details"] = {"error": error_message}
             
             sql = f"""
                 UPDATE scraping_runs 
@@ -570,12 +495,12 @@ class AdminService:
             
             self.db.execute(text("""
                 UPDATE scraping_runs 
-                SET started_at = :schedule_time, search_params = :search_params
+                SET start_time = :schedule_time, config_used = :config_used
                 WHERE id = :search_id
             """), {
                 "search_id": search_id_int,
                 "schedule_time": schedule_time,
-                "search_params": json.dumps(search_params, default=str)
+                "config_used": search_params
             })
             
             self.db.commit()
@@ -709,14 +634,14 @@ class AdminService:
             # Count pending searches (recent ones that haven't started)
             pending_result = self.db.execute(text("""
                 SELECT COUNT(*) FROM scraping_runs 
-                WHERE status = 'pending' AND started_at > NOW() - INTERVAL '1 hour'
+                WHERE status = 'pending' AND start_time > NOW() - INTERVAL '1 hour'
             """))
             pending_count = pending_result.scalar() or 0
             
             # Count completed searches today
             completed_result = self.db.execute(text("""
                 SELECT COUNT(*) FROM scraping_runs 
-                WHERE status = 'completed' AND started_at >= :today_start
+                WHERE status = 'completed' AND start_time >= :today_start
             """), {"today_start": today_start})
             completed_today = completed_result.scalar() or 0
             
