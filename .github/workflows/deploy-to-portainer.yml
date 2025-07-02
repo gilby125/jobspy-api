@@ -1,13 +1,16 @@
 name: Deploy to Portainer
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger only
+  # Uncomment below when webhook is accessible
+  # push:
+  #   branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Skip if webhook not accessible
+    if: ${{ vars.PORTAINER_WEBHOOK_ENABLED == 'true' }}
     
     steps:
     - name: Checkout code
