@@ -35,7 +35,7 @@ target_metadata = Base.metadata
 
 def get_database_url():
     """Get database URL from environment or settings."""
-    return "postgresql://jobspy:jobspy_password@localhost:5432/jobspy"
+    return settings.DATABASE_URL
 
 
 def run_migrations_offline() -> None:
