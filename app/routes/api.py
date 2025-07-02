@@ -185,6 +185,11 @@ async def search_jobs(
     request_id = str(uuid.uuid4())
     start_time = time.time()
     
+    # Use default country for Indeed/Glassdoor if not provided
+    if site_name and country_indeed is None:
+        if any(site.lower() in ['indeed', 'glassdoor'] for site in site_name):
+            country_indeed = settings.DEFAULT_COUNTRY_INDEED
+    
     validate_job_search_params(
         site_name=site_name,
         country_indeed=country_indeed,
@@ -414,9 +419,16 @@ async def search_jobs_post(
     request_id = str(uuid.uuid4())
     start_time = time.time()
     
+    # Use default country for Indeed/Glassdoor if not provided
+    country_indeed = params.country_indeed
+    if params.site_name and country_indeed is None:
+        site_names = params.site_name if isinstance(params.site_name, list) else [params.site_name]
+        if any(site.lower() in ['indeed', 'glassdoor'] for site in site_names):
+            country_indeed = settings.DEFAULT_COUNTRY_INDEED
+    
     validate_job_search_params(
         site_name=params.site_name if isinstance(params.site_name, list) else [params.site_name],
-        country_indeed=params.country_indeed,
+        country_indeed=country_indeed,
         hours_old=params.hours_old,
         job_type=params.job_type,
         is_remote=params.is_remote,
@@ -428,11 +440,16 @@ async def search_jobs_post(
         paginate=getattr(params, "paginate", None),
     )
     
-    logger.info(f"Request {request_id}: Starting job search with parameters: {params.dict(exclude_none=True)}")
+    # Create modified params dict with correct country_indeed
+    params_dict = params.dict(exclude_none=True)
+    if country_indeed is not None:
+        params_dict['country_indeed'] = country_indeed
+    
+    logger.info(f"Request {request_id}: Starting job search with parameters: {params_dict}")
     
     try:
         # Execute the search
-        jobs_df, is_cached = await JobService.search_jobs(params.dict(exclude_none=True))
+        jobs_df, is_cached = await JobService.search_jobs(params_dict)
         
         # Save jobs to database if we got results and it's not cached
         if not jobs_df.empty and not is_cached:
