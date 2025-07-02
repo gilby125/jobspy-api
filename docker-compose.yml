@@ -56,7 +56,7 @@ services:
       # The most important settings that need consistent values
       - LOG_LEVEL=${LOG_LEVEL:-INFO}  # Default to INFO if not set elsewhere
       - ENABLE_API_KEY_AUTH=${ENABLE_API_KEY_AUTH:-false}
-      - API_KEYS=${API_KEYS:-}
+      # - API_KEYS=${API_KEYS:-}  # Commented out since auth is disabled
       
       # Rate Limiting (only enable if needed)
       - RATE_LIMIT_ENABLED=${RATE_LIMIT_ENABLED:-false}
