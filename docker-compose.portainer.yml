@@ -8,8 +8,6 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-jobspy}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-jobspy_password}
       - TIMESCALEDB_TELEMETRY=off
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init:/docker-entrypoint-initdb.d
@@ -23,8 +21,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: unless-stopped
